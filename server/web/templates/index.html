@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScanFlow</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>ScanFlow</h1>
+            <div id="status-indicator" class="status">
+                <span class="dot"></span>
+                <span id="status-text">Verbinde...</span>
+            </div>
+        </header>
+
+        <main>
+            <section id="scanner-section">
+                <h2>Scanner</h2>
+                <div id="devices-list"></div>
+            </section>
+
+            <section id="scan-section">
+                <h2>Neuer Scan</h2>
+                <div class="form-group">
+                    <label for="profile-select">Profil:</label>
+                    <select id="profile-select">
+                        <option value="standard">Standard</option>
+                        <option value="oversize">Ueberlaenge</option>
+                        <option value="photo">Foto</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="output-select">Ausgabe:</label>
+                    <select id="output-select">
+                        <option value="paperless">Paperless-NGX</option>
+                        <option value="smb">Netzwerkfreigabe</option>
+                        <option value="filesystem">Lokal</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="title-input">Titel:</label>
+                    <input type="text" id="title-input" placeholder="Optional">
+                </div>
+                <button id="scan-btn" class="btn btn-primary" onclick="startScan()">
+                    Scan starten
+                </button>
+            </section>
+
+            <section id="jobs-section">
+                <h2>Aktive Jobs</h2>
+                <div id="jobs-list"></div>
+            </section>
+        </main>
+    </div>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

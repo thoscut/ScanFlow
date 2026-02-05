@@ -1,0 +1,27 @@
+[Unit]
+Description=ScanFlow Scanner Server
+After=network.target
+Documentation=https://github.com/thoscut/ScanFlow
+
+[Service]
+Type=simple
+User=scanner
+Group=scanner
+ExecStart=/opt/scanflow/scanflow-server -config /etc/scanflow/server.toml
+Restart=always
+RestartSec=5
+
+# Environment
+Environment=SCANFLOW_LOG_LEVEL=info
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/scanflow /var/log/scanflow /tmp/scanflow
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

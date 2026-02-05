@@ -1,0 +1,12 @@
+[server]
+url = "http://scanserver.local:8080"
+api_key = "sk_live_change_me_in_production"
+
+[defaults]
+profile = "standard"
+output = "paperless"
+interactive = false
+
+[tui]
+theme = "dark"
+preview_quality = "medium"

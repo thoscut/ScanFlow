@@ -1,0 +1,22 @@
+[profile]
+name = "Ueberlaenge"
+description = "Fuer Dokumente laenger als A4 (Kontoauszuege, etc.)"
+
+[scanner]
+resolution = 200
+mode = "gray"
+source = "adf_duplex"
+page_width = 210.0
+page_height = 0  # Unbegrenzt
+
+[processing]
+optimize_images = true
+deskew = true
+remove_blank_pages = false
+
+[processing.ocr]
+enabled = true
+language = "deu"
+
+[output]
+default_target = "paperless"
