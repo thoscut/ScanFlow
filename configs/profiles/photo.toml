@@ -1,0 +1,21 @@
+[profile]
+name = "Foto"
+description = "Hochaufloesender Farbscan fuer Fotos"
+
+[scanner]
+resolution = 600
+mode = "color"
+source = "flatbed"
+page_width = 210.0
+page_height = 297.0
+
+[processing]
+optimize_images = false
+deskew = false
+remove_blank_pages = false
+
+[processing.ocr]
+enabled = false
+
+[output]
+default_target = "filesystem"

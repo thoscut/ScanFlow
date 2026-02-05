@@ -1,0 +1,35 @@
+# Binaries
+dist/
+*.exe
+scanflow-server
+scanflow-server-*
+
+# Dependencies
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+/tmp/
+*.tmp
+
+# Secrets (never commit these)
+*.pem
+*.key
+paperless_token
+smb_password
+smtp_password
+api_key
+
+# Build
+*.o
+*.a

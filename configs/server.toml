@@ -1,0 +1,93 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+base_url = "http://scanserver.local:8080"
+
+[server.auth]
+enabled = true
+api_keys = [
+    "sk_live_change_me_in_production",
+]
+
+[server.tls]
+enabled = false
+cert_file = "/etc/scanflow/cert.pem"
+key_file = "/etc/scanflow/key.pem"
+
+[scanner]
+device = ""  # Leer = Auto-Detect
+auto_open = true
+
+[scanner.defaults]
+resolution = 300
+mode = "color"
+source = "adf_duplex"
+page_width = 210.0   # A4
+page_height = 297.0  # 0 fuer Ueberlaengen
+
+# Hardware-Button (Kurz/Lang-Druck-Erkennung)
+[button]
+enabled = true
+poll_interval = "50ms"
+long_press_duration = "1s"
+short_press_profile = "standard"
+long_press_profile = "oversize"
+output = "paperless"
+beep_on_long_press = true
+
+[button.metadata]
+title_pattern = "Scan_{date}_{time}"
+
+[processing]
+temp_directory = "/tmp/scanflow"
+max_concurrent_jobs = 2
+
+[processing.pdf]
+format = "PDF/A-2b"
+compression = "jpeg"
+jpeg_quality = 85
+
+[processing.ocr]
+enabled = true
+language = "deu+eng"
+tesseract_path = "/usr/bin/tesseract"
+
+[storage]
+local_directory = "/var/lib/scanflow/documents"
+retention_days = 30
+
+[output.paperless]
+enabled = true
+url = "https://paperless.local"
+token_file = "/etc/scanflow/paperless_token"
+verify_ssl = true
+default_correspondent = 0
+default_document_type = 0
+default_tags = []
+
+[output.smb]
+enabled = false
+server = "//nas.local"
+share = "scans"
+username = "scanner"
+password_file = "/etc/scanflow/smb_password"
+directory = "incoming"
+filename_pattern = "{date}_{time}_{title}"
+
+[output.paperless_consume]
+enabled = false
+path = "/mnt/paperless/consume"
+
+[output.email]
+enabled = false
+smtp_host = "smtp.example.com"
+smtp_port = 587
+smtp_user = "scanner@example.com"
+smtp_password_file = "/etc/scanflow/smtp_password"
+from_address = "scanner@example.com"
+default_recipient = ""
+
+[logging]
+level = "info"
+format = "json"
+file = "/var/log/scanflow/server.log"

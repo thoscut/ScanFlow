@@ -1,0 +1,23 @@
+[profile]
+name = "Standard Dokument"
+description = "Farbscan 300 DPI, beidseitig, mit OCR"
+
+[scanner]
+resolution = 300
+mode = "color"
+source = "adf_duplex"
+page_width = 210.0
+page_height = 420.0
+
+[processing]
+optimize_images = true
+deskew = true
+remove_blank_pages = true
+blank_threshold = 0.99
+
+[processing.ocr]
+enabled = true
+language = "deu"
+
+[output]
+default_target = "paperless"
