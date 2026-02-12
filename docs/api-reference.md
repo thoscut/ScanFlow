@@ -99,9 +99,12 @@ Neuen Scan starten.
     "title": "Rechnung 2024",
     "tags": [1, 3],
     "correspondent": 5
-  }
+  },
+  "ocr_enabled": true
 }
 ```
+
+Der Parameter `ocr_enabled` ist optional. Wenn gesetzt, ueberschreibt er die globale OCR-Einstellung fuer diesen einzelnen Scan. Nuetzlich wenn z.B. Paperless-NGX die OCR-Verarbeitung uebernimmt.
 
 **Response (202):**
 ```json
@@ -209,6 +212,40 @@ Neues Profil erstellen.
 #### PUT /api/v1/profiles/{name}
 
 Profil aktualisieren.
+
+### Einstellungen
+
+#### GET /api/v1/settings
+
+Aktuelle Einstellungen abfragen.
+
+**Response:**
+```json
+{
+  "ocr_enabled": true,
+  "ocr_language": "deu+eng"
+}
+```
+
+#### PUT /api/v1/settings
+
+Einstellungen aktualisieren. Aenderungen werden sofort wirksam fuer neue Scans.
+
+**Request:**
+```json
+{
+  "ocr_enabled": false,
+  "ocr_language": "deu+eng"
+}
+```
+
+**Response:**
+```json
+{
+  "ocr_enabled": false,
+  "ocr_language": "deu+eng"
+}
+```
 
 ### WebSocket
 

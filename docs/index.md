@@ -15,11 +15,11 @@ Client-Server system for network document scanning with Paperless-NGX integratio
 - **Paperless-NGX Upload** - Direct upload with metadata, tags, and document types
 - **SMB/CIFS Output** - Save scans directly to network shares
 - **Multi-page Scanning** - ADF duplex support with page management
-- **OCR Processing** - Tesseract-based OCR (German + English)
+- **Optional OCR Processing** - Tesseract-based OCR (can be disabled per-scan or globally, e.g. when Paperless handles OCR)
 - **PDF Generation** - PDF/A-2b compliant output
 - **WebSocket Live Updates** - Real-time scan progress in client
+- **Web UI** - Browser-based scanner control with settings management
 - **Terminal UI** - Interactive Bubbletea-based TUI for the client
-- **Web UI** - Browser-based scanner control interface
 - **REST API** - Full API for custom integrations
 - **Cross-platform Client** - Builds for Linux, macOS, and Windows
 
