@@ -8,7 +8,7 @@ func TestNewJob(t *testing.T) {
 	output := OutputConfig{Target: "paperless"}
 	metadata := &DocumentMetadata{Title: "Test Document"}
 
-	job := NewJob("standard", output, metadata)
+	job := NewJob("standard", output, metadata, nil)
 
 	if job.ID == "" {
 		t.Fatal("job ID should not be empty")
@@ -28,7 +28,7 @@ func TestNewJob(t *testing.T) {
 }
 
 func TestJobSetStatus(t *testing.T) {
-	job := NewJob("standard", OutputConfig{}, nil)
+	job := NewJob("standard", OutputConfig{}, nil, nil)
 
 	job.SetStatus(StatusScanning)
 	if job.Status != StatusScanning {
@@ -42,7 +42,7 @@ func TestJobSetStatus(t *testing.T) {
 }
 
 func TestJobSetError(t *testing.T) {
-	job := NewJob("standard", OutputConfig{}, nil)
+	job := NewJob("standard", OutputConfig{}, nil, nil)
 
 	testErr := &testError{msg: "scan failed"}
 	job.SetError(testErr)
@@ -56,7 +56,7 @@ func TestJobSetError(t *testing.T) {
 }
 
 func TestJobAddDeletePage(t *testing.T) {
-	job := NewJob("standard", OutputConfig{}, nil)
+	job := NewJob("standard", OutputConfig{}, nil, nil)
 
 	job.AddPage(&Page{Number: 1, Width: 100, Height: 200})
 	job.AddPage(&Page{Number: 2, Width: 100, Height: 200})
@@ -90,7 +90,7 @@ func TestJobAddDeletePage(t *testing.T) {
 }
 
 func TestJobCancel(t *testing.T) {
-	job := NewJob("standard", OutputConfig{}, nil)
+	job := NewJob("standard", OutputConfig{}, nil, nil)
 
 	cancelled := false
 	job.SetCancel(func() { cancelled = true })
@@ -106,7 +106,7 @@ func TestJobCancel(t *testing.T) {
 
 func TestQueueSubmitAndGet(t *testing.T) {
 	q := NewQueue()
-	job := NewJob("standard", OutputConfig{Target: "paperless"}, nil)
+	job := NewJob("standard", OutputConfig{Target: "paperless"}, nil, nil)
 
 	if err := q.Submit(job); err != nil {
 		t.Fatalf("submit failed: %v", err)
@@ -129,8 +129,8 @@ func TestQueueSubmitAndGet(t *testing.T) {
 func TestQueueList(t *testing.T) {
 	q := NewQueue()
 
-	job1 := NewJob("standard", OutputConfig{}, nil)
-	job2 := NewJob("oversize", OutputConfig{}, nil)
+	job1 := NewJob("standard", OutputConfig{}, nil, nil)
+	job2 := NewJob("oversize", OutputConfig{}, nil, nil)
 
 	q.Submit(job1)
 	q.Submit(job2)
@@ -143,7 +143,7 @@ func TestQueueList(t *testing.T) {
 
 func TestQueueCancel(t *testing.T) {
 	q := NewQueue()
-	job := NewJob("standard", OutputConfig{}, nil)
+	job := NewJob("standard", OutputConfig{}, nil, nil)
 
 	q.Submit(job)
 
@@ -158,7 +158,7 @@ func TestQueueCancel(t *testing.T) {
 
 func TestQueueRemove(t *testing.T) {
 	q := NewQueue()
-	job := NewJob("standard", OutputConfig{}, nil)
+	job := NewJob("standard", OutputConfig{}, nil, nil)
 
 	q.Submit(job)
 	q.Remove(job.ID)

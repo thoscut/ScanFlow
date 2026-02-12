@@ -96,6 +96,8 @@ func (s *Server) setupRouter() {
 
 		// System
 		r.Get("/api/v1/status", s.handleStatus)
+		r.Get("/api/v1/settings", s.handleGetSettings)
+		r.Put("/api/v1/settings", s.handleUpdateSettings)
 
 		// WebSocket
 		r.Get("/api/v1/ws", s.handleWebSocket)

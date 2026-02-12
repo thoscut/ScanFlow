@@ -83,7 +83,7 @@ func main() {
 		onShortPress := func() {
 			job := jobs.NewJob(btnCfg.ShortPressProfile, jobs.OutputConfig{
 				Target: btnCfg.Output,
-			}, nil)
+			}, nil, nil)
 			slog.Info("button short press scan", "profile", btnCfg.ShortPressProfile)
 			jobQueue.Submit(job)
 		}
@@ -91,7 +91,7 @@ func main() {
 		onLongPress := func() {
 			job := jobs.NewJob(btnCfg.LongPressProfile, jobs.OutputConfig{
 				Target: btnCfg.Output,
-			}, nil)
+			}, nil, nil)
 			slog.Info("button long press scan", "profile", btnCfg.LongPressProfile)
 			jobQueue.Submit(job)
 		}
