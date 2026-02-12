@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -53,9 +54,10 @@ func main() {
 
 	jobQueue := jobs.NewQueue()
 
-	profiles, err := config.NewProfileStore("configs/profiles")
+	profilesDir := filepath.Join(filepath.Dir(*configPath), "profiles")
+	profiles, err := config.NewProfileStore(profilesDir)
 	if err != nil {
-		slog.Warn("failed to load profiles from directory, using defaults", "error", err)
+		slog.Warn("failed to load profiles from directory, using defaults", "dir", profilesDir, "error", err)
 		profiles, _ = config.NewProfileStore("")
 	}
 
