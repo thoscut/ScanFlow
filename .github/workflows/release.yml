@@ -76,6 +76,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.22"
+          cache-dependency-path: |
+            server/go.sum
+            client/go.sum
 
       - name: Get version
         id: version
@@ -102,10 +105,36 @@ jobs:
           name: ${{ matrix.binary }}
           path: dist/${{ matrix.binary }}
 
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Build documentation
+        run: |
+          pip install mkdocs mkdocs-material
+          mkdocs build
+
+      - name: Create docs archive
+        run: tar -czf scanflow-docs.tar.gz -C site .
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scanflow-docs
+          path: scanflow-docs.tar.gz
+
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, build-docs]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -133,4 +162,5 @@ jobs:
             dist/scanflow-darwin-amd64
             dist/scanflow-darwin-arm64
             dist/scanflow-windows-amd64.exe
+            dist/scanflow-docs.tar.gz
             dist/checksums.txt

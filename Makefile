@@ -68,9 +68,19 @@ fmt:
 
 .PHONY: clean
 clean:
-	rm -rf dist/
+	rm -rf dist/ site/
 	cd server && go clean
 	cd client && go clean
+
+# --- Docs ---
+
+.PHONY: docs
+docs:
+	mkdocs build
+
+.PHONY: docs-serve
+docs-serve:
+	mkdocs serve
 
 # --- Docker ---
 
