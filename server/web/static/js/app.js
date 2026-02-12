@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     checkStatus();
     loadDevices();
     loadProfiles();
+    loadSettings();
     connectWebSocket();
 
     // Refresh status periodically
@@ -84,6 +85,35 @@ async function loadProfiles() {
     }
 }
 
+// Settings
+async function loadSettings() {
+    try {
+        const settings = await apiRequest('GET', '/api/v1/settings');
+        document.getElementById('ocr-checkbox').checked = settings.ocr_enabled;
+        document.getElementById('settings-ocr-enabled').checked = settings.ocr_enabled;
+        document.getElementById('settings-ocr-language').value = settings.ocr_language || 'deu+eng';
+    } catch (err) {
+        console.error('Failed to load settings:', err);
+    }
+}
+
+async function saveSettings() {
+    const ocrEnabled = document.getElementById('settings-ocr-enabled').checked;
+    const ocrLanguage = document.getElementById('settings-ocr-language').value;
+
+    try {
+        await apiRequest('PUT', '/api/v1/settings', {
+            ocr_enabled: ocrEnabled,
+            ocr_language: ocrLanguage,
+        });
+        // Sync the per-scan checkbox with the new default
+        document.getElementById('ocr-checkbox').checked = ocrEnabled;
+        alert('Einstellungen gespeichert');
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    }
+}
+
 // Scan
 async function startScan() {
     const btn = document.getElementById('scan-btn');
@@ -93,10 +123,12 @@ async function startScan() {
     const profile = document.getElementById('profile-select').value;
     const output = document.getElementById('output-select').value;
     const title = document.getElementById('title-input').value;
+    const ocrEnabled = document.getElementById('ocr-checkbox').checked;
 
     const req = {
         profile: profile,
         output: { target: output },
+        ocr_enabled: ocrEnabled,
     };
 
     if (title) {
