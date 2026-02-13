@@ -44,8 +44,35 @@
                     <label for="title-input">Titel:</label>
                     <input type="text" id="title-input" placeholder="Optional">
                 </div>
+                <div class="form-group checkbox-group">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="ocr-checkbox" checked>
+                        <span class="toggle-switch"></span>
+                        <span>OCR aktivieren</span>
+                    </label>
+                    <span class="hint">Texterkennung (kann deaktiviert werden wenn z.B. Paperless OCR uebernimmt)</span>
+                </div>
                 <button id="scan-btn" class="btn btn-primary" onclick="startScan()">
                     Scan starten
+                </button>
+            </section>
+
+            <section id="settings-section">
+                <h2>Einstellungen</h2>
+                <div class="form-group checkbox-group">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="settings-ocr-enabled" checked>
+                        <span class="toggle-switch"></span>
+                        <span>OCR standardmaessig aktiviert</span>
+                    </label>
+                    <span class="hint">Standard-Einstellung fuer neue Scans</span>
+                </div>
+                <div class="form-group">
+                    <label for="settings-ocr-language">OCR Sprache:</label>
+                    <input type="text" id="settings-ocr-language" value="deu+eng" placeholder="z.B. deu+eng">
+                </div>
+                <button class="btn btn-secondary" onclick="saveSettings()">
+                    Einstellungen speichern
                 </button>
             </section>
 

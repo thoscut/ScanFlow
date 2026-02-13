@@ -111,7 +111,7 @@ func (s *Server) handleStartScan(w http.ResponseWriter, r *http.Request) {
 		outputCfg = *req.Output
 	}
 
-	job := jobs.NewJob(profile, outputCfg, req.Metadata)
+	job := jobs.NewJob(profile, outputCfg, req.Metadata, req.OcrEnabled)
 
 	if err := s.jobQueue.Submit(job); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -340,4 +340,39 @@ func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	s.profiles.Set(name, &profile)
 	writeJSON(w, http.StatusOK, profile)
+}
+
+// Settings
+
+type settingsResponse struct {
+	OcrEnabled  bool   `json:"ocr_enabled"`
+	OcrLanguage string `json:"ocr_language"`
+}
+
+func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, settingsResponse{
+		OcrEnabled:  s.cfg.Processing.OCR.Enabled,
+		OcrLanguage: s.cfg.Processing.OCR.Language,
+	})
+}
+
+func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	var req settingsResponse
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	s.cfg.Processing.OCR.Enabled = req.OcrEnabled
+	if req.OcrLanguage != "" {
+		s.cfg.Processing.OCR.Language = req.OcrLanguage
+	}
+
+	// Update the pipeline with new settings
+	s.processor.SetOCR(req.OcrEnabled, s.cfg.Processing.OCR.Language)
+
+	writeJSON(w, http.StatusOK, settingsResponse{
+		OcrEnabled:  s.cfg.Processing.OCR.Enabled,
+		OcrLanguage: s.cfg.Processing.OCR.Language,
+	})
 }

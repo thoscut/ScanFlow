@@ -1,6 +1,6 @@
 # ScanFlow
 
-Client-Server-System for network document scanning with Paperless-NGX integration. The server runs on Linux (Raspberry Pi) with SANE, clients are cross-platform (Windows/macOS/Linux).
+Client-Server system for network document scanning with Paperless-NGX integration. The server runs on Linux (Raspberry Pi) with SANE, clients are cross-platform (Windows/macOS/Linux).
 
 ```
 [Scanner] <--USB--> [Raspberry Pi + SANE] <--REST API--> [Client (Win/Mac/Linux)]
@@ -15,7 +15,7 @@ Client-Server-System for network document scanning with Paperless-NGX integratio
 - **Paperless-NGX Upload** - Direct upload with metadata, tags, and document types
 - **SMB/CIFS Output** - Save scans directly to network shares
 - **Multi-page Scanning** - ADF duplex support with page management
-- **Optional OCR Processing** - Tesseract-based OCR (can be disabled when e.g. Paperless handles OCR)
+- **Optional OCR Processing** - Tesseract-based OCR (can be disabled per-scan or globally, e.g. when Paperless handles OCR)
 - **PDF Generation** - PDF/A-2b compliant output
 - **WebSocket Live Updates** - Real-time scan progress in client
 - **Web UI** - Browser-based scanner control with settings management
@@ -44,31 +44,40 @@ make all
 # Or build individually
 make build-server
 make build-client
+
+# Cross-compile client for all platforms
+make build-client-all
+
+# Cross-compile server for ARM64 (Raspberry Pi)
+make build-server-arm64
 ```
 
-### Run
+### Server Setup
 
 ```bash
-# Server
-./dist/scanflow-server -config configs/server.toml
+# Test scanner detection
+scanimage -L
 
-# Client
+# Configure
+cp configs/server.toml /etc/scanflow/server.toml
+# Edit /etc/scanflow/server.toml with your settings
+
+# Run
+./dist/scanflow-server -config /etc/scanflow/server.toml
+```
+
+### Client Setup
+
+```bash
+# Configure server connection
 ./dist/scanflow config set server.url http://scanserver.local:8080
+./dist/scanflow config set server.api_key sk_live_...
+
+# Start a scan
 ./dist/scanflow scan --profile standard --output paperless
-```
 
-## Documentation
-
-Full documentation is available at [docs/](docs/):
-
-- [Installation Guide](docs/installation.md)
-- [Configuration Reference](docs/configuration.md)
-- [API Reference](docs/api-reference.md)
-
-Build and serve docs locally:
-
-```bash
-make docs-serve
+# Interactive TUI mode
+./dist/scanflow scan --interactive
 ```
 
 ## Project Structure
@@ -96,7 +105,3 @@ scanflow/
 ├── deploy/                # Systemd, Docker, Ansible
 └── docs/                  # Documentation
 ```
-
-## License
-
-All rights reserved.

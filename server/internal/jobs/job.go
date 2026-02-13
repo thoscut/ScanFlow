@@ -24,16 +24,17 @@ const (
 
 // Job represents a scan job with all its data and state.
 type Job struct {
-	ID        string           `json:"id"`
-	Status    JobStatus        `json:"status"`
-	Profile   string           `json:"profile"`
-	Pages     []*Page          `json:"pages"`
-	Progress  int              `json:"progress"`
-	Error     string           `json:"error,omitempty"`
-	Output    OutputConfig     `json:"output"`
-	Metadata  *DocumentMetadata `json:"metadata,omitempty"`
-	CreatedAt time.Time        `json:"created_at"`
-	UpdatedAt time.Time        `json:"updated_at"`
+	ID         string           `json:"id"`
+	Status     JobStatus        `json:"status"`
+	Profile    string           `json:"profile"`
+	Pages      []*Page          `json:"pages"`
+	Progress   int              `json:"progress"`
+	Error      string           `json:"error,omitempty"`
+	Output     OutputConfig     `json:"output"`
+	Metadata   *DocumentMetadata `json:"metadata,omitempty"`
+	OcrEnabled *bool            `json:"ocr_enabled,omitempty"`
+	CreatedAt  time.Time        `json:"created_at"`
+	UpdatedAt  time.Time        `json:"updated_at"`
 
 	mu       sync.RWMutex
 	cancel   context.CancelFunc
@@ -81,11 +82,12 @@ type ScanOptions struct {
 
 // ScanRequest represents an incoming scan request from the API.
 type ScanRequest struct {
-	Profile  string            `json:"profile,omitempty"`
-	DeviceID string            `json:"device_id,omitempty"`
-	Options  *ScanOptions      `json:"options,omitempty"`
-	Output   *OutputConfig     `json:"output,omitempty"`
-	Metadata *DocumentMetadata `json:"metadata,omitempty"`
+	Profile    string            `json:"profile,omitempty"`
+	DeviceID   string            `json:"device_id,omitempty"`
+	Options    *ScanOptions      `json:"options,omitempty"`
+	Output     *OutputConfig     `json:"output,omitempty"`
+	Metadata   *DocumentMetadata `json:"metadata,omitempty"`
+	OcrEnabled *bool             `json:"ocr_enabled,omitempty"`
 }
 
 // ProgressUpdate is sent via WebSocket to report job progress.
@@ -114,18 +116,19 @@ type Document struct {
 }
 
 // NewJob creates a new job with default values.
-func NewJob(profile string, output OutputConfig, metadata *DocumentMetadata) *Job {
+func NewJob(profile string, output OutputConfig, metadata *DocumentMetadata, ocrEnabled *bool) *Job {
 	now := time.Now()
 	return &Job{
-		ID:        uuid.New().String(),
-		Status:    StatusPending,
-		Profile:   profile,
-		Pages:     make([]*Page, 0),
-		Output:    output,
-		Metadata:  metadata,
-		CreatedAt: now,
-		UpdatedAt: now,
-		progress:  make(chan ProgressUpdate, 100),
+		ID:         uuid.New().String(),
+		Status:     StatusPending,
+		Profile:    profile,
+		Pages:      make([]*Page, 0),
+		Output:     output,
+		Metadata:   metadata,
+		OcrEnabled: ocrEnabled,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		progress:   make(chan ProgressUpdate, 100),
 	}
 }
 

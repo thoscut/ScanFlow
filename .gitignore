@@ -1,8 +1,11 @@
 # Binaries
 dist/
 *.exe
-scanflow-server
-scanflow-server-*
+/scanflow-server
+/scanflow-server-*
+
+# MkDocs build output
+site/
 
 # Dependencies
 vendor/

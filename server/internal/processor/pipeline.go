@@ -32,6 +32,14 @@ func NewPipeline(cfg config.ProcessingConfig) *Pipeline {
 	}
 }
 
+// SetOCR updates the OCR settings at runtime.
+func (p *Pipeline) SetOCR(enabled bool, language string) {
+	p.ocrEnabled = enabled
+	if language != "" {
+		p.ocrLanguage = language
+	}
+}
+
 // Process takes a completed scan job and produces a Document ready for output.
 func (p *Pipeline) Process(ctx context.Context, job *jobs.Job, profile *config.Profile) (*jobs.Document, error) {
 	slog.Info("processing job", "job_id", job.ID, "pages", job.PageCount())
@@ -98,6 +106,10 @@ func (p *Pipeline) Process(ctx context.Context, job *jobs.Job, profile *config.P
 	ocrEnabled := p.ocrEnabled
 	if profile.Processing.OCR.Enabled {
 		ocrEnabled = true
+	}
+	// Per-scan override takes highest priority
+	if job.OcrEnabled != nil {
+		ocrEnabled = *job.OcrEnabled
 	}
 
 	if ocrEnabled {

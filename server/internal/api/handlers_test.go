@@ -259,3 +259,98 @@ func TestAuthMiddleware(t *testing.T) {
 		t.Fatalf("expected 200 for health without auth, got %d", w.Code)
 	}
 }
+
+func TestGetSettingsEndpoint(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest("GET", "/api/v1/settings", nil)
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var resp settingsResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+
+	// Default config has OCR enabled
+	if !resp.OcrEnabled {
+		t.Fatal("expected OCR to be enabled by default")
+	}
+	if resp.OcrLanguage != "deu+eng" {
+		t.Fatalf("expected language 'deu+eng', got %s", resp.OcrLanguage)
+	}
+}
+
+func TestUpdateSettingsEndpoint(t *testing.T) {
+	srv := newTestServer(t)
+
+	// Disable OCR via settings
+	body, _ := json.Marshal(settingsResponse{
+		OcrEnabled:  false,
+		OcrLanguage: "eng",
+	})
+
+	req := httptest.NewRequest("PUT", "/api/v1/settings", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var resp settingsResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+
+	if resp.OcrEnabled {
+		t.Fatal("expected OCR to be disabled after update")
+	}
+	if resp.OcrLanguage != "eng" {
+		t.Fatalf("expected language 'eng', got %s", resp.OcrLanguage)
+	}
+
+	// Verify settings are persisted by reading them back
+	req = httptest.NewRequest("GET", "/api/v1/settings", nil)
+	w = httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp.OcrEnabled {
+		t.Fatal("expected OCR to remain disabled after re-read")
+	}
+}
+
+func TestStartScanWithOcrDisabled(t *testing.T) {
+	srv := newTestServer(t)
+
+	ocrOff := false
+	scanReq := jobs.ScanRequest{
+		Profile:    "standard",
+		OcrEnabled: &ocrOff,
+	}
+	body, _ := json.Marshal(scanReq)
+
+	req := httptest.NewRequest("POST", "/api/v1/scan", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("expected status 202, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var job jobs.Job
+	json.NewDecoder(w.Body).Decode(&job)
+
+	if job.OcrEnabled == nil {
+		t.Fatal("expected ocr_enabled to be set")
+	}
+	if *job.OcrEnabled {
+		t.Fatal("expected ocr_enabled to be false")
+	}
+}

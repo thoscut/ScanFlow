@@ -57,11 +57,33 @@ Datei: `/etc/scanflow/server.toml`
 
 ### [processing.ocr]
 
+OCR ist optional und kann global in der Konfiguration, ueber die Web-UI (Einstellungen) oder pro Scan deaktiviert werden. Dies ist nuetzlich wenn z.B. Paperless-NGX die OCR-Verarbeitung uebernimmt.
+
 | Parameter | Typ | Standard | Beschreibung |
 |-----------|-----|----------|-------------|
-| enabled | bool | true | OCR aktivieren |
+| enabled | bool | true | OCR standardmaessig aktivieren |
 | language | string | "deu+eng" | Tesseract-Sprachen |
 | tesseract_path | string | "/usr/bin/tesseract" | Tesseract-Pfad |
+
+OCR kann auch zur Laufzeit ueber die Settings-API geaendert werden:
+
+```bash
+# OCR-Status abfragen
+curl http://scanserver.local:8080/api/v1/settings
+
+# OCR deaktivieren
+curl -X PUT http://scanserver.local:8080/api/v1/settings \
+  -H "Content-Type: application/json" \
+  -d '{"ocr_enabled": false, "ocr_language": "deu+eng"}'
+```
+
+Einzelne Scans koennen die OCR-Einstellung ueberschreiben:
+
+```bash
+curl -X POST http://scanserver.local:8080/api/v1/scan \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "standard", "ocr_enabled": false}'
+```
 
 ### [output.paperless]
 
