@@ -11,7 +11,7 @@ import (
 	"github.com/thoscut/scanflow/server/internal/jobs"
 )
 
-func writeJSON(w http.ResponseWriter, status int, v interface{}) {
+func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
@@ -43,7 +43,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"status":      "ok",
 		"version":     "0.1.0",
 		"scanner":     s.scanner.IsConnected(),
@@ -56,7 +56,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 // Scanner management
 func (s *Server) handleListDevices(w http.ResponseWriter, r *http.Request) {
 	devices := s.scanner.ListDevices()
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"devices": devices,
 	})
 }
@@ -166,7 +166,7 @@ func (s *Server) handleGetPreview(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{"previews": previews})
+	writeJSON(w, http.StatusOK, map[string]any{"previews": previews})
 }
 
 func (s *Server) handleContinueScan(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +223,7 @@ func (s *Server) handleListPages(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "job not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"pages": job.Pages})
+	writeJSON(w, http.StatusOK, map[string]any{"pages": job.Pages})
 }
 
 func (s *Server) handleDeletePage(w http.ResponseWriter, r *http.Request) {
@@ -270,7 +270,7 @@ func (s *Server) handleReorderPages(w http.ResponseWriter, r *http.Request) {
 // Output targets
 func (s *Server) handleListOutputs(w http.ResponseWriter, r *http.Request) {
 	outputs := s.outputs.ListTargets()
-	writeJSON(w, http.StatusOK, map[string]interface{}{"outputs": outputs})
+	writeJSON(w, http.StatusOK, map[string]any{"outputs": outputs})
 }
 
 func (s *Server) handleSendOutput(w http.ResponseWriter, r *http.Request) {
@@ -295,7 +295,7 @@ func (s *Server) handleSendOutput(w http.ResponseWriter, r *http.Request) {
 // Profiles
 func (s *Server) handleListProfiles(w http.ResponseWriter, r *http.Request) {
 	profiles := s.profiles.List()
-	writeJSON(w, http.StatusOK, map[string]interface{}{"profiles": profiles})
+	writeJSON(w, http.StatusOK, map[string]any{"profiles": profiles})
 }
 
 func (s *Server) handleGetProfile(w http.ResponseWriter, r *http.Request) {

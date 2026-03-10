@@ -41,10 +41,10 @@ type Scanner struct {
 	autoOpen   bool
 	defaults   ScanOptions
 
-	devices    []Device
-	connected  bool
-	scanning   bool
-	mu         sync.RWMutex
+	devices   []Device
+	connected bool
+	scanning  bool
+	mu        sync.RWMutex
 
 	// SANE backend interface for testability
 	backend ScannerBackend
@@ -57,8 +57,8 @@ type ScannerBackend interface {
 	ListDevices() ([]Device, error)
 	Open(deviceName string) error
 	CloseDevice()
-	SetOption(name string, value interface{}) error
-	GetOption(name string) (interface{}, error)
+	SetOption(name string, value any) error
+	GetOption(name string) (any, error)
 	ReadImage() (image.Image, error)
 	IsOpen() bool
 }

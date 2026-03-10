@@ -105,3 +105,9 @@ scanflow/
 ├── deploy/                # Systemd, Docker, Ansible
 └── docs/                  # Documentation
 ```
+
+## Further Reading
+
+- [Installation Guide](installation.md)
+- [Hardware Recommendations](hardware.md)
+- [Roadmap](roadmap.md)

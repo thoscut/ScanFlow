@@ -5,7 +5,7 @@
 ### Server (Raspberry Pi / Linux)
 
 - Linux (Debian/Ubuntu empfohlen)
-- Go 1.22+ (nur zum Bauen)
+- Go 1.26+ (nur zum Bauen)
 - SANE (Scanner-Treiber)
 - Tesseract OCR (optional)
 
@@ -75,10 +75,21 @@ sudo chmod 600 /etc/scanflow/paperless_token
 ### 6. Systemd Service installieren
 
 ```bash
-sudo cp deploy/systemd/scanflow.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable scanflow
+sudo ./dist/scanflow-server -install-service -config /etc/scanflow/server.toml
 sudo systemctl start scanflow
+```
+
+Der Server erzeugt dabei bei Bedarf automatisch:
+
+- `/opt/scanflow/scanflow-server`
+- `/etc/scanflow/server.toml`
+- `/etc/systemd/system/scanflow.service`
+- `/var/lib/scanflow`, `/var/log/scanflow`, `/tmp/scanflow`
+
+Optional kann der Dienst direkt aktiviert und gestartet werden:
+
+```bash
+sudo ./dist/scanflow-server -install-service -start-service
 ```
 
 ### 7. Status pruefen
@@ -128,3 +139,21 @@ Wichtig: USB-Passthrough fuer Scanner-Zugriff erforderlich.
 | Permission denied | `sudo usermod -aG scanner $USER` |
 | Paperless 401 | Token pruefen |
 | Verbindung verweigert | Firewall, Port pruefen |
+
+## Hardware-Empfehlungen
+
+### Bewaehrte Server-Hardware
+
+- **Raspberry Pi 4 / 5 mit 4 GB RAM oder mehr** fuer kompakte Scan-Server
+- **SSD statt SD-Karte** fuer OCR-Tempdaten und geringeren Verschleiss
+- **USB-Scanner mit ADF und Duplex** fuer stabile Batch-Scans
+- **Netzwerk per Ethernet** statt WLAN fuer grosse PDF-Uploads
+
+### Geeignete Scanner-Merkmale
+
+- SANE-kompatibler Treiber
+- Dokumenteneinzug (ADF)
+- Duplex-Scan
+- Hardware-Button, wenn Kurz-/Langdruck direkt am Geraet genutzt werden soll
+
+Vor dem produktiven Einsatz immer mit `scanimage -L` und `scanimage -A` pruefen, ob Scanner und Sensoren sauber erkannt werden.

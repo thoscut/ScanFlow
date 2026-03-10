@@ -17,6 +17,7 @@ import (
 	"github.com/thoscut/scanflow/server/internal/output"
 	"github.com/thoscut/scanflow/server/internal/processor"
 	"github.com/thoscut/scanflow/server/internal/scanner"
+	"github.com/thoscut/scanflow/server/internal/service"
 )
 
 var version = "dev"
@@ -24,10 +25,55 @@ var version = "dev"
 func main() {
 	configPath := flag.String("config", "/etc/scanflow/server.toml", "path to config file")
 	showVersion := flag.Bool("version", false, "show version and exit")
+	installService := flag.Bool("install-service", false, "install ScanFlow as a systemd service (Linux only)")
+	uninstallService := flag.Bool("uninstall-service", false, "remove the installed ScanFlow systemd service (Linux only)")
+	serviceName := flag.String("service-name", "scanflow", "systemd service name")
+	serviceUser := flag.String("service-user", "scanner", "systemd service user")
+	serviceGroup := flag.String("service-group", "scanner", "systemd service group")
+	serviceBinary := flag.String("service-binary", "/opt/scanflow/scanflow-server", "installed service binary path")
+	startService := flag.Bool("start-service", false, "start the service immediately after installation")
 	flag.Parse()
 
 	if *showVersion {
 		fmt.Println("scanflow-server", version)
+		os.Exit(0)
+	}
+
+	if *installService && *uninstallService {
+		slog.Error("install-service and uninstall-service cannot be used together")
+		os.Exit(1)
+	}
+
+	if *installService || *uninstallService {
+		executable, err := os.Executable()
+		if err != nil {
+			slog.Error("failed to determine executable path", "error", err)
+			os.Exit(1)
+		}
+
+		opts := service.Options{
+			ServiceName: *serviceName,
+			User:        *serviceUser,
+			Group:       *serviceGroup,
+			BinaryPath:  *serviceBinary,
+			ConfigPath:  *configPath,
+			StartNow:    *startService,
+		}
+
+		if *installService {
+			if err := service.Install(executable, opts); err != nil {
+				slog.Error("failed to install service", "error", err)
+				os.Exit(1)
+			}
+			slog.Info("service installed successfully", "service", opts.WithDefaults().ServiceName, "config", opts.WithDefaults().ConfigPath)
+			os.Exit(0)
+		}
+
+		if err := service.Uninstall(opts); err != nil {
+			slog.Error("failed to uninstall service", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("service removed successfully", "service", opts.WithDefaults().ServiceName)
 		os.Exit(0)
 	}
 

@@ -64,6 +64,8 @@ Full documentation is available at [docs/](docs/):
 - [Installation Guide](docs/installation.md)
 - [Configuration Reference](docs/configuration.md)
 - [API Reference](docs/api-reference.md)
+- [Hardware Recommendations](docs/hardware.md)
+- [Roadmap](docs/roadmap.md)
 
 Build and serve docs locally:
 

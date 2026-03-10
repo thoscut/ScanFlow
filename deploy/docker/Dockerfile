@@ -1,4 +1,4 @@
-FROM golang:1.22-bookworm AS builder
+FROM golang:1.26.1-bookworm AS builder
 
 WORKDIR /app
 COPY server/ ./server/
@@ -13,7 +13,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     sane-utils libsane1 \
     tesseract-ocr tesseract-ocr-deu \
-    ca-certificates \
+    ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /etc/scanflow /var/lib/scanflow /var/log/scanflow /tmp/scanflow
