@@ -11,11 +11,11 @@ import (
 type stubBackend struct {
 	open       bool
 	deviceName string
-	options    map[string]interface{}
+	options    map[string]any
 }
 
 func (s *stubBackend) Init() error {
-	s.options = make(map[string]interface{})
+	s.options = make(map[string]any)
 	return nil
 }
 
@@ -44,7 +44,7 @@ func (s *stubBackend) CloseDevice() {
 	s.open = false
 }
 
-func (s *stubBackend) SetOption(name string, value interface{}) error {
+func (s *stubBackend) SetOption(name string, value any) error {
 	if !s.open {
 		return errors.New("device not open")
 	}
@@ -52,7 +52,7 @@ func (s *stubBackend) SetOption(name string, value interface{}) error {
 	return nil
 }
 
-func (s *stubBackend) GetOption(name string) (interface{}, error) {
+func (s *stubBackend) GetOption(name string) (any, error) {
 	if !s.open {
 		return nil, errors.New("device not open")
 	}

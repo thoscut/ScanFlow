@@ -42,8 +42,8 @@ type TLSConfig struct {
 }
 
 type ScannerConfig struct {
-	Device   string         `toml:"device"`
-	AutoOpen bool           `toml:"auto_open"`
+	Device   string          `toml:"device"`
+	AutoOpen bool            `toml:"auto_open"`
 	Defaults ScannerDefaults `toml:"defaults"`
 }
 
@@ -161,6 +161,10 @@ func (d *duration) UnmarshalText(text []byte) error {
 
 func (d duration) Duration() time.Duration {
 	return time.Duration(d)
+}
+
+func (d duration) MarshalText() ([]byte, error) {
+	return []byte(time.Duration(d).String()), nil
 }
 
 // Load reads and parses the server configuration from a TOML file.

@@ -96,13 +96,8 @@ docker-run:
 
 .PHONY: install-server
 install-server: build-server
-	sudo mkdir -p /opt/scanflow /etc/scanflow /var/lib/scanflow /var/log/scanflow
-	sudo cp dist/scanflow-server /opt/scanflow/
-	sudo cp configs/server.toml /etc/scanflow/
-	sudo cp configs/profiles/*.toml /etc/scanflow/profiles/ 2>/dev/null || true
-	sudo cp deploy/systemd/scanflow.service /etc/systemd/system/
-	sudo systemctl daemon-reload
-	@echo "ScanFlow server installed. Run: sudo systemctl enable --now scanflow"
+	sudo ./dist/scanflow-server -install-service -config /etc/scanflow/server.toml
+	@echo "ScanFlow server installed. Review /etc/scanflow/server.toml and start with: sudo systemctl restart scanflow"
 
 .PHONY: install-client
 install-client: build-client

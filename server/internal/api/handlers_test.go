@@ -63,7 +63,7 @@ func TestStatusEndpoint(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", w.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 
 	if resp["status"] != "ok" {

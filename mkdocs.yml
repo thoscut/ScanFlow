@@ -17,8 +17,10 @@ theme:
 nav:
   - Home: index.md
   - Installation: installation.md
+  - Hardware Recommendations: hardware.md
   - Configuration: configuration.md
   - API Reference: api-reference.md
+  - Roadmap: roadmap.md
 
 markdown_extensions:
   - tables

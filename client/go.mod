@@ -1,6 +1,8 @@
 module github.com/thoscut/scanflow/client
 
-go 1.22.0
+go 1.26.0
+
+toolchain go1.26.1
 
 require (
 	github.com/charmbracelet/bubbletea v1.2.4
