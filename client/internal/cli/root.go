@@ -13,6 +13,7 @@ var (
 	cfgFile   string
 	cfg       *config.Config
 	apiClient *client.Client
+	appVersion = "dev"
 )
 
 var rootCmd = &cobra.Command{
@@ -38,6 +39,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file path")
 	rootCmd.PersistentFlags().String("server", "", "server URL (overrides config)")
 	rootCmd.PersistentFlags().String("api-key", "", "API key (overrides config)")
+	rootCmd.SetVersionTemplate("scanflow client {{.Version}}\n")
 
 	rootCmd.AddCommand(scanCmd)
 	rootCmd.AddCommand(devicesCmd)
@@ -49,7 +51,9 @@ func init() {
 }
 
 // Execute runs the root command.
-func Execute() {
+func Execute(version string) {
+	appVersion = version
+	rootCmd.Version = version
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -63,6 +67,6 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("scanflow client v0.1.0")
+		fmt.Println("scanflow client", appVersion)
 	},
 }
