@@ -39,7 +39,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file path")
 	rootCmd.PersistentFlags().String("server", "", "server URL (overrides config)")
 	rootCmd.PersistentFlags().String("api-key", "", "API key (overrides config)")
-	rootCmd.SetVersionTemplate("scanflow client {{.Version}}\n")
 
 	rootCmd.AddCommand(scanCmd)
 	rootCmd.AddCommand(devicesCmd)
@@ -54,6 +53,7 @@ func init() {
 func Execute(version string) {
 	appVersion = version
 	rootCmd.Version = version
+	rootCmd.SetVersionTemplate("scanflow client {{.Version}}\n")
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

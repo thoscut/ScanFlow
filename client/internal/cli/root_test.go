@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestVersionCommandUsesConfiguredVersion(t *testing.T) {
@@ -24,7 +26,14 @@ func TestVersionCommandUsesConfiguredVersion(t *testing.T) {
 		os.Stdout = oldStdout
 	})
 
-	versionCmd.Run(versionCmd, nil)
+	cmd := &cobra.Command{
+		Use: "version",
+		Run: versionCmd.Run,
+	}
+
+	if _, err := cmd.ExecuteC(); err != nil {
+		t.Fatalf("execute version command: %v", err)
+	}
 
 	if err := w.Close(); err != nil {
 		t.Fatalf("close writer: %v", err)
