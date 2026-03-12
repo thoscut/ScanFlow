@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -232,6 +233,15 @@ func Load(path string) (*Config, error) {
 
 // DefaultConfig returns the configuration with sensible defaults.
 func DefaultConfig() *Config {
+	tempDir := "/tmp/scanflow"
+	tesseractPath := "/usr/bin/tesseract"
+	localDir := "/var/lib/scanflow/documents"
+	if runtime.GOOS == "windows" {
+		tempDir = os.TempDir() + `\scanflow`
+		tesseractPath = "tesseract"
+		localDir = os.Getenv("ProgramData") + `\ScanFlow\documents`
+	}
+
 	return &Config{
 		Server: ServerConfig{
 			Host: "0.0.0.0",
@@ -258,7 +268,7 @@ func DefaultConfig() *Config {
 			},
 		},
 		Processing: ProcessingConfig{
-			TempDirectory:     "/tmp/scanflow",
+			TempDirectory:     tempDir,
 			MaxConcurrentJobs: 2,
 			PDF: PDFConfig{
 				Format:      "PDF/A-2b",
@@ -268,11 +278,11 @@ func DefaultConfig() *Config {
 			OCR: OCRConfig{
 				Enabled:       true,
 				Language:      "deu+eng",
-				TesseractPath: "/usr/bin/tesseract",
+				TesseractPath: tesseractPath,
 			},
 		},
 		Storage: StorageConfig{
-			LocalDirectory: "/var/lib/scanflow/documents",
+			LocalDirectory: localDir,
 			RetentionDays:  30,
 		},
 		Output: OutputConfig{
