@@ -14,6 +14,41 @@ enabled = false
 cert_file = "/etc/scanflow/cert.pem"
 key_file = "/etc/scanflow/key.pem"
 
+# Automatic TLS via Let's Encrypt / ACME.
+# When enabled, certificates are obtained and renewed automatically.
+# This takes precedence over manual cert_file/key_file settings.
+[server.tls.acme]
+enabled = false
+email = ""                                    # Contact email for Let's Encrypt
+domains = []                                  # e.g. ["scanflow.example.com"]
+challenge = "http"                            # "http" or "dns"
+cert_dir = "/var/lib/scanflow/certs"
+# directory_url = ""                          # Empty = Let's Encrypt production
+# dns_provider = ""                           # "cloudflare", "duckdns", "route53", "exec"
+# dns_propagation_wait = "120s"               # Wait time for DNS propagation
+
+# Cloudflare DNS settings (when dns_provider = "cloudflare")
+# [server.tls.acme.cloudflare]
+# api_token_file = "/etc/scanflow/cloudflare_token"
+# zone_id = ""                                # Optional, auto-detected if empty
+
+# DuckDNS settings (when dns_provider = "duckdns")
+# [server.tls.acme.duckdns]
+# token_file = "/etc/scanflow/duckdns_token"
+
+# AWS Route 53 settings (when dns_provider = "route53")
+# [server.tls.acme.route53]
+# access_key_id = ""
+# secret_access_key_file = "/etc/scanflow/route53_secret"
+# hosted_zone_id = ""
+# region = "us-east-1"
+
+# External script for DNS challenges (when dns_provider = "exec")
+# Scripts are called with: <domain> <token> <key_auth>
+# [server.tls.acme.exec]
+# create_command = "/usr/local/bin/dns-challenge-create"
+# cleanup_command = "/usr/local/bin/dns-challenge-cleanup"
+
 [scanner]
 device = ""  # Leer = Auto-Detect
 auto_open = true

@@ -19,6 +19,143 @@ Datei: `/etc/scanflow/server.toml`
 | enabled | bool | true | Authentifizierung aktivieren |
 | api_keys | []string | [] | Gueltige API-Schluessel |
 
+### [server.tls]
+
+| Parameter | Typ | Standard | Beschreibung |
+|-----------|-----|----------|-------------|
+| enabled | bool | false | TLS aktivieren |
+| cert_file | string | "" | Zertifikat-Datei (PEM) |
+| key_file | string | "" | Schluessel-Datei (PEM) |
+
+### [server.tls.acme]
+
+Automatische TLS-Zertifikate ueber Let's Encrypt (ACME). Wenn aktiviert, werden
+Zertifikate automatisch bezogen und erneuert. Dies hat Vorrang vor manuellen
+`cert_file`/`key_file` Einstellungen.
+
+| Parameter | Typ | Standard | Beschreibung |
+|-----------|-----|----------|-------------|
+| enabled | bool | false | ACME aktivieren |
+| email | string | "" | Kontakt-E-Mail fuer Let's Encrypt |
+| domains | []string | [] | Domains fuer das Zertifikat |
+| challenge | string | "http" | Challenge-Typ: "http" oder "dns" |
+| cert_dir | string | "/var/lib/scanflow/certs" | Verzeichnis fuer Zertifikate |
+| directory_url | string | "" | ACME-Directory (leer = Let's Encrypt Produktion) |
+| dns_provider | string | "" | DNS-Provider: "cloudflare", "duckdns", "route53", "exec" |
+| dns_propagation_wait | duration | "120s" | DNS-Propagierungs-Wartezeit |
+
+#### HTTP-Challenge
+
+Die HTTP-Challenge funktioniert automatisch. Der Server muss auf Port 80
+erreichbar sein (fuer die Challenge-Validierung). Port 443 wird fuer HTTPS verwendet.
+
+```toml
+[server]
+port = 443
+
+[server.tls]
+enabled = true
+
+[server.tls.acme]
+enabled = true
+email = "admin@example.com"
+domains = ["scanflow.example.com"]
+challenge = "http"
+```
+
+#### DNS-Challenge mit Cloudflare
+
+```toml
+[server.tls.acme]
+enabled = true
+email = "admin@example.com"
+domains = ["scanflow.example.com"]
+challenge = "dns"
+dns_provider = "cloudflare"
+
+[server.tls.acme.cloudflare]
+api_token_file = "/etc/scanflow/cloudflare_token"
+# zone_id = ""  # Optional, wird automatisch erkannt
+```
+
+| Parameter | Typ | Beschreibung |
+|-----------|-----|-------------|
+| api_token_file | string | Pfad zur Cloudflare API-Token-Datei |
+| zone_id | string | Cloudflare Zone-ID (optional, wird automatisch erkannt) |
+
+#### DNS-Challenge mit DuckDNS
+
+Besonders geeignet fuer Home-Server mit dynamischer IP.
+
+```toml
+[server.tls.acme]
+enabled = true
+email = "admin@example.com"
+domains = ["myscanner.duckdns.org"]
+challenge = "dns"
+dns_provider = "duckdns"
+
+[server.tls.acme.duckdns]
+token_file = "/etc/scanflow/duckdns_token"
+```
+
+| Parameter | Typ | Beschreibung |
+|-----------|-----|-------------|
+| token_file | string | Pfad zur DuckDNS-Token-Datei |
+
+#### DNS-Challenge mit AWS Route 53
+
+```toml
+[server.tls.acme]
+enabled = true
+email = "admin@example.com"
+domains = ["scanflow.example.com"]
+challenge = "dns"
+dns_provider = "route53"
+
+[server.tls.acme.route53]
+access_key_id = "AKIAEXAMPLE"
+secret_access_key_file = "/etc/scanflow/route53_secret"
+hosted_zone_id = "Z0123456789"
+region = "eu-central-1"
+```
+
+| Parameter | Typ | Beschreibung |
+|-----------|-----|-------------|
+| access_key_id | string | AWS Access Key ID |
+| secret_access_key_file | string | Pfad zur Secret-Access-Key-Datei |
+| hosted_zone_id | string | Route 53 Hosted Zone ID |
+| region | string | AWS Region (Standard: us-east-1) |
+
+#### DNS-Challenge mit externem Skript
+
+Fuer DNS-Provider die nicht nativ unterstuetzt werden, koennen eigene Skripte
+oder Tools wie certbot/lego verwendet werden.
+
+```toml
+[server.tls.acme]
+enabled = true
+email = "admin@example.com"
+domains = ["scanflow.example.com"]
+challenge = "dns"
+dns_provider = "exec"
+
+[server.tls.acme.exec]
+create_command = "/usr/local/bin/dns-challenge-create"
+cleanup_command = "/usr/local/bin/dns-challenge-cleanup"
+```
+
+Die Skripte werden mit folgenden Argumenten aufgerufen:
+```
+<create_command> <domain> <token> <key_auth>
+<cleanup_command> <domain> <token> <key_auth>
+```
+
+| Parameter | Typ | Beschreibung |
+|-----------|-----|-------------|
+| create_command | string | Skript zum Erstellen des DNS-TXT-Eintrags |
+| cleanup_command | string | Skript zum Loeschen des DNS-TXT-Eintrags |
+
 ### [scanner]
 
 | Parameter | Typ | Standard | Beschreibung |
