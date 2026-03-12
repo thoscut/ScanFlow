@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -23,14 +24,21 @@ import (
 var version = "dev"
 
 func main() {
-	configPath := flag.String("config", "/etc/scanflow/server.toml", "path to config file")
+	defaultConfigPath := "/etc/scanflow/server.toml"
+	defaultBinaryPath := "/opt/scanflow/scanflow-server"
+	if runtime.GOOS == "windows" {
+		defaultConfigPath = filepath.Join(os.Getenv("ProgramData"), "ScanFlow", "server.toml")
+		defaultBinaryPath = filepath.Join(os.Getenv("ProgramFiles"), "ScanFlow", "scanflow-server.exe")
+	}
+
+	configPath := flag.String("config", defaultConfigPath, "path to config file")
 	showVersion := flag.Bool("version", false, "show version and exit")
-	installService := flag.Bool("install-service", false, "install ScanFlow as a systemd service (Linux only)")
-	uninstallService := flag.Bool("uninstall-service", false, "remove the installed ScanFlow systemd service (Linux only)")
-	serviceName := flag.String("service-name", "scanflow", "systemd service name")
-	serviceUser := flag.String("service-user", "scanner", "systemd service user")
-	serviceGroup := flag.String("service-group", "scanner", "systemd service group")
-	serviceBinary := flag.String("service-binary", "/opt/scanflow/scanflow-server", "installed service binary path")
+	installService := flag.Bool("install-service", false, "install ScanFlow as a system service")
+	uninstallService := flag.Bool("uninstall-service", false, "remove the installed ScanFlow system service")
+	serviceName := flag.String("service-name", "scanflow", "service name")
+	serviceUser := flag.String("service-user", "scanner", "service user (Linux only)")
+	serviceGroup := flag.String("service-group", "scanner", "service group (Linux only)")
+	serviceBinary := flag.String("service-binary", defaultBinaryPath, "installed service binary path")
 	startService := flag.Bool("start-service", false, "start the service immediately after installation")
 	flag.Parse()
 

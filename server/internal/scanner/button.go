@@ -3,7 +3,6 @@ package scanner
 import (
 	"context"
 	"log/slog"
-	"os/exec"
 	"time"
 )
 
@@ -115,7 +114,4 @@ func (w *ButtonWatcher) poll() {
 	}
 }
 
-func (w *ButtonWatcher) playBeep() {
-	// Try system beep command (available on most Linux systems)
-	exec.Command("beep", "-f", "1000", "-l", "100").Run()
-}
+// playBeep is implemented per-platform in beep_*.go files.
