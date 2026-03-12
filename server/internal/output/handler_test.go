@@ -135,3 +135,39 @@ func TestManagerSendUnknownTarget(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestFilesystemHandlerPathTraversal(t *testing.T) {
+	dir := t.TempDir()
+	handler := NewFilesystemHandler(dir)
+
+	doc := &jobs.Document{
+		Filename: "../../etc/passwd",
+		Reader:   strings.NewReader("should-not-escape"),
+	}
+
+	if err := handler.Send(context.Background(), doc); err != nil {
+		t.Fatalf("send failed: %v", err)
+	}
+
+	// The file must end up inside dir, not in ../../etc
+	if _, err := os.Stat(filepath.Join(dir, "passwd")); err != nil {
+		t.Fatalf("expected file inside dir: %v", err)
+	}
+}
+
+func TestSanitizeMIMEValue(t *testing.T) {
+	cases := []struct {
+		input, want string
+	}{
+		{"normal.pdf", "normal.pdf"},
+		{"file\r\nInjected-Header: evil", "fileInjected-Header: evil"},
+		{"file\x00name.pdf", "filename.pdf"},
+		{`file"quote.pdf`, "filequote.pdf"},
+	}
+	for _, tc := range cases {
+		got := sanitizeMIMEValue(tc.input)
+		if got != tc.want {
+			t.Errorf("sanitizeMIMEValue(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}

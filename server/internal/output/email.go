@@ -53,9 +53,14 @@ func (h *EmailHandler) Available() bool {
 // Send emails a document as an attachment.
 func (h *EmailHandler) Send(_ context.Context, doc *jobs.Document) error {
 	to := h.recipient
-	subject := "ScanFlow: " + doc.Filename
-	if doc.Title != "" {
-		subject = "ScanFlow: " + doc.Title
+
+	// Sanitize values used in MIME headers to prevent header injection.
+	safeFilename := sanitizeMIMEValue(doc.Filename)
+	safeTitle := sanitizeMIMEValue(doc.Title)
+
+	subject := "ScanFlow: " + safeFilename
+	if safeTitle != "" {
+		subject = "ScanFlow: " + safeTitle
 	}
 
 	// Read document data
@@ -77,13 +82,13 @@ func (h *EmailHandler) Send(_ context.Context, doc *jobs.Document) error {
 	// Text body
 	msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
 	msg.WriteString("Content-Type: text/plain; charset=utf-8\r\n\r\n")
-	msg.WriteString(fmt.Sprintf("Scanned document: %s\r\n\r\n", doc.Filename))
+	msg.WriteString(fmt.Sprintf("Scanned document: %s\r\n\r\n", safeFilename))
 
 	// PDF attachment
 	msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
-	msg.WriteString(fmt.Sprintf("Content-Type: application/pdf; name=\"%s\"\r\n", doc.Filename))
+	msg.WriteString(fmt.Sprintf("Content-Type: application/pdf; name=\"%s\"\r\n", safeFilename))
 	msg.WriteString("Content-Transfer-Encoding: base64\r\n")
-	msg.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n\r\n", doc.Filename))
+	msg.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n\r\n", safeFilename))
 
 	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
 	// Wrap at 76 characters
@@ -106,4 +111,17 @@ func (h *EmailHandler) Send(_ context.Context, doc *jobs.Document) error {
 	}
 
 	return nil
+}
+
+// sanitizeMIMEValue removes characters that could cause MIME header injection
+// (newlines, carriage returns, null bytes, and double quotes).
+func sanitizeMIMEValue(v string) string {
+	result := make([]byte, 0, len(v))
+	for i := 0; i < len(v); i++ {
+		c := v[i]
+		if c != '\r' && c != '\n' && c != 0 && c != '"' {
+			result = append(result, c)
+		}
+	}
+	return string(result)
 }

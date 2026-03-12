@@ -54,6 +54,8 @@ func (s *Server) setupRouter() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(SecurityHeadersMiddleware)
+	r.Use(MaxBodyMiddleware)
 	r.Use(CORSMiddleware())
 
 	// Health check (no auth required)

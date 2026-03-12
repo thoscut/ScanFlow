@@ -6,13 +6,22 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"regexp"
 )
+
+// validOCRLang matches Tesseract language codes like "eng", "deu+eng", "chi_sim".
+var validOCRLang = regexp.MustCompile(`^[a-zA-Z0-9_]+(\+[a-zA-Z0-9_]+)*$`)
 
 // runOCR applies OCR to a PDF using Tesseract via the ocrmypdf wrapper.
 // Falls back to direct Tesseract if ocrmypdf is not available.
 func runOCR(ctx context.Context, inputPDF, outputPDF, language, tesseractPath string) error {
 	if tesseractPath == "" {
 		tesseractPath = "tesseract"
+	}
+
+	// Validate the language parameter to prevent command injection.
+	if !validOCRLang.MatchString(language) {
+		return fmt.Errorf("invalid OCR language %q", language)
 	}
 
 	// Try ocrmypdf first (produces searchable PDF directly)

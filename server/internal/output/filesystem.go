@@ -32,7 +32,12 @@ func (h *FilesystemHandler) Send(_ context.Context, doc *jobs.Document) error {
 		return fmt.Errorf("create directory: %w", err)
 	}
 
-	path := filepath.Join(h.directory, doc.Filename)
+	// Prevent path traversal by using only the base name.
+	cleanName := filepath.Base(filepath.Clean(doc.Filename))
+	if cleanName == "." || cleanName == "/" {
+		cleanName = "document.pdf"
+	}
+	path := filepath.Join(h.directory, cleanName)
 
 	f, err := os.Create(path)
 	if err != nil {

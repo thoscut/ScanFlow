@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/thoscut/scanflow/server/internal/config"
 	"github.com/thoscut/scanflow/server/internal/jobs"
 )
+
+// validOCRLangAPI matches Tesseract language codes for API input validation.
+var validOCRLangAPI = regexp.MustCompile(`^[a-zA-Z0-9_]+(\+[a-zA-Z0-9_]+)*$`)
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -360,6 +364,12 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	var req settingsResponse
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Validate OCR language to prevent command injection through Tesseract args.
+	if req.OcrLanguage != "" && !validOCRLangAPI.MatchString(req.OcrLanguage) {
+		writeError(w, http.StatusBadRequest, "invalid OCR language")
 		return
 	}
 
