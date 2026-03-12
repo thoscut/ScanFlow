@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/thoscut/scanflow/server/internal/acme"
 	"github.com/thoscut/scanflow/server/internal/config"
 	"github.com/thoscut/scanflow/server/internal/jobs"
 	"github.com/thoscut/scanflow/server/internal/output"
@@ -18,15 +19,17 @@ import (
 
 // Server is the HTTP API server.
 type Server struct {
-	cfg       *config.Config
-	router    chi.Router
-	scanner   *scanner.Scanner
-	jobQueue  *jobs.Queue
-	profiles  *config.ProfileStore
-	processor *processor.Pipeline
-	outputs   *output.Manager
-	wsHub     *WebSocketHub
-	server    *http.Server
+	cfg         *config.Config
+	router      chi.Router
+	scanner     *scanner.Scanner
+	jobQueue    *jobs.Queue
+	profiles    *config.ProfileStore
+	processor   *processor.Pipeline
+	outputs     *output.Manager
+	wsHub       *WebSocketHub
+	server      *http.Server
+	acmeMgr     *acme.Manager
+	acmeHTTPSrv *http.Server // port 80 listener for ACME HTTP-01 challenges
 }
 
 // NewServer creates a new API server.
@@ -54,6 +57,8 @@ func (s *Server) setupRouter() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(SecurityHeadersMiddleware)
+	r.Use(MaxBodyMiddleware)
 	r.Use(CORSMiddleware())
 
 	// Health check (no auth required)
@@ -107,7 +112,7 @@ func (s *Server) setupRouter() {
 }
 
 // Start begins listening for HTTP connections.
-func (s *Server) Start() error {
+func (s *Server) Start(ctx context.Context) error {
 	addr := fmt.Sprintf("%s:%d", s.cfg.Server.Host, s.cfg.Server.Port)
 
 	s.server = &http.Server{
@@ -126,6 +131,12 @@ func (s *Server) Start() error {
 
 	slog.Info("API server starting", "addr", addr)
 
+	// ACME / Let's Encrypt automatic certificates.
+	if s.cfg.Server.TLS.ACME.Enabled {
+		return s.startACME(ctx)
+	}
+
+	// Manual TLS with static certificate files.
 	if s.cfg.Server.TLS.Enabled {
 		return s.server.ListenAndServeTLS(
 			s.cfg.Server.TLS.CertFile,
@@ -135,9 +146,54 @@ func (s *Server) Start() error {
 	return s.server.ListenAndServe()
 }
 
+// startACME configures and starts the server with ACME-managed TLS.
+func (s *Server) startACME(ctx context.Context) error {
+	mgr, err := acme.New(s.cfg.Server.TLS.ACME)
+	if err != nil {
+		return fmt.Errorf("ACME setup: %w", err)
+	}
+	s.acmeMgr = mgr
+
+	// For DNS challenges, obtain the certificate before starting TLS.
+	if err := mgr.EnsureCertificate(ctx); err != nil {
+		return fmt.Errorf("ACME certificate: %w", err)
+	}
+
+	// Start background renewal.
+	mgr.StartRenewal(ctx)
+
+	// Configure TLS.
+	s.server.TLSConfig = mgr.TLSConfig()
+
+	// If using HTTP-01, start a redirect handler on port 80.
+	if handler := mgr.HTTPHandler(nil); handler != nil {
+		httpAddr := fmt.Sprintf("%s:80", s.cfg.Server.Host)
+		s.acmeHTTPSrv = &http.Server{
+			Addr:         httpAddr,
+			Handler:      handler,
+			ReadTimeout:  10 * time.Second,
+			WriteTimeout: 10 * time.Second,
+		}
+		go func() {
+			slog.Info("ACME HTTP challenge listener starting", "addr", httpAddr)
+			if err := s.acmeHTTPSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				slog.Error("ACME HTTP listener error", "error", err)
+			}
+		}()
+	}
+
+	// ListenAndServeTLS with empty cert/key uses the tls.Config.
+	return s.server.ListenAndServeTLS("", "")
+}
+
 // Shutdown gracefully stops the server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	slog.Info("API server shutting down")
+	if s.acmeHTTPSrv != nil {
+		if err := s.acmeHTTPSrv.Shutdown(ctx); err != nil {
+			slog.Warn("ACME HTTP listener shutdown error", "error", err)
+		}
+	}
 	return s.server.Shutdown(ctx)
 }
 

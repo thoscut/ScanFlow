@@ -45,6 +45,11 @@ func (h *PaperlessConsumeHandler) Send(_ context.Context, doc *jobs.Document) er
 	// Build filename using Paperless naming convention:
 	// [correspondent] - [date] - [title] - [tags].pdf
 	filename := h.buildFilename(doc)
+	// Prevent path traversal by using only the base name.
+	filename = filepath.Base(filepath.Clean(filename))
+	if filename == "." || filename == "/" {
+		filename = "document.pdf"
+	}
 	targetPath := filepath.Join(h.consumePath, filename)
 
 	f, err := os.Create(targetPath)

@@ -90,6 +90,70 @@ func TestLoadConfigMissing(t *testing.T) {
 	}
 }
 
+func TestLoadConfigACME(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "server.toml")
+
+	content := `
+[server]
+host = "0.0.0.0"
+port = 443
+
+[server.tls]
+enabled = true
+
+[server.tls.acme]
+enabled = true
+email = "admin@example.com"
+domains = ["scanflow.example.com", "scanner.example.com"]
+challenge = "dns"
+cert_dir = "/var/lib/scanflow/certs"
+dns_provider = "cloudflare"
+dns_propagation_wait = "90s"
+
+[server.tls.acme.cloudflare]
+api_token_file = "/etc/scanflow/cf_token"
+zone_id = "zone123"
+`
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	acmeCfg := cfg.Server.TLS.ACME
+	if !acmeCfg.Enabled {
+		t.Fatal("expected ACME enabled")
+	}
+	if acmeCfg.Email != "admin@example.com" {
+		t.Fatalf("expected email admin@example.com, got %s", acmeCfg.Email)
+	}
+	if len(acmeCfg.Domains) != 2 {
+		t.Fatalf("expected 2 domains, got %d", len(acmeCfg.Domains))
+	}
+	if acmeCfg.Domains[0] != "scanflow.example.com" {
+		t.Fatalf("expected first domain scanflow.example.com, got %s", acmeCfg.Domains[0])
+	}
+	if acmeCfg.Challenge != "dns" {
+		t.Fatalf("expected challenge dns, got %s", acmeCfg.Challenge)
+	}
+	if acmeCfg.DNSProvider != "cloudflare" {
+		t.Fatalf("expected dns_provider cloudflare, got %s", acmeCfg.DNSProvider)
+	}
+	if acmeCfg.DNSPropagationWait.Duration().Seconds() != 90 {
+		t.Fatalf("expected propagation wait 90s, got %v", acmeCfg.DNSPropagationWait.Duration())
+	}
+	if acmeCfg.Cloudflare.APITokenFile != "/etc/scanflow/cf_token" {
+		t.Fatalf("expected cloudflare token file, got %s", acmeCfg.Cloudflare.APITokenFile)
+	}
+	if acmeCfg.Cloudflare.ZoneID != "zone123" {
+		t.Fatalf("expected cloudflare zone_id zone123, got %s", acmeCfg.Cloudflare.ZoneID)
+	}
+}
+
 func TestProfileStore(t *testing.T) {
 	store, err := NewProfileStore("")
 	if err != nil {

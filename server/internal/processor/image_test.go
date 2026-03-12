@@ -67,3 +67,19 @@ func TestSanitizeFilename(t *testing.T) {
 		}
 	}
 }
+
+func TestValidOCRLang(t *testing.T) {
+	valid := []string{"eng", "deu", "deu+eng", "chi_sim", "chi_sim+eng"}
+	for _, lang := range valid {
+		if !validOCRLang.MatchString(lang) {
+			t.Errorf("expected %q to be valid", lang)
+		}
+	}
+
+	invalid := []string{"eng; rm -rf /", "eng && cat /etc/passwd", "$(evil)", "eng\nfoo", ""}
+	for _, lang := range invalid {
+		if validOCRLang.MatchString(lang) {
+			t.Errorf("expected %q to be invalid", lang)
+		}
+	}
+}

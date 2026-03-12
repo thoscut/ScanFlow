@@ -104,11 +104,15 @@ func (h *PaperlessHandler) Send(ctx context.Context, doc *jobs.Document) error {
 
 // GetTaskStatus queries the status of a Paperless background task.
 func (h *PaperlessHandler) GetTaskStatus(ctx context.Context, taskID string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET",
-		h.baseURL+"/api/tasks/?task_id="+taskID, nil)
+	u := h.baseURL + "/api/tasks/"
+	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
 		return "", err
 	}
+	// Use query parameter encoding to prevent URL injection.
+	q := req.URL.Query()
+	q.Set("task_id", taskID)
+	req.URL.RawQuery = q.Encode()
 	req.Header.Set("Authorization", "Token "+h.token)
 
 	resp, err := h.client.Do(req)

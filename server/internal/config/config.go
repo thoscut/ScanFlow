@@ -36,9 +36,53 @@ type AuthConfig struct {
 }
 
 type TLSConfig struct {
-	Enabled  bool   `toml:"enabled"`
-	CertFile string `toml:"cert_file"`
-	KeyFile  string `toml:"key_file"`
+	Enabled  bool       `toml:"enabled"`
+	CertFile string     `toml:"cert_file"`
+	KeyFile  string     `toml:"key_file"`
+	ACME     ACMEConfig `toml:"acme"`
+}
+
+// ACMEConfig configures automatic certificate management via Let's Encrypt.
+type ACMEConfig struct {
+	Enabled            bool     `toml:"enabled"`
+	Email              string   `toml:"email"`
+	Domains            []string `toml:"domains"`
+	Challenge          string   `toml:"challenge"`            // "http" or "dns"
+	CertDir            string   `toml:"cert_dir"`
+	DirectoryURL       string   `toml:"directory_url"`        // empty = Let's Encrypt production
+	DNSProvider        string   `toml:"dns_provider"`         // "cloudflare", "duckdns", "route53", "exec"
+	DNSPropagationWait duration `toml:"dns_propagation_wait"` // time to wait for DNS propagation
+
+	// Provider-specific DNS settings.
+	Cloudflare ACMECloudflareConfig `toml:"cloudflare"`
+	DuckDNS    ACMEDuckDNSConfig    `toml:"duckdns"`
+	Route53    ACMERoute53Config    `toml:"route53"`
+	Exec       ACMEExecConfig       `toml:"exec"`
+}
+
+// ACMECloudflareConfig holds Cloudflare DNS settings.
+type ACMECloudflareConfig struct {
+	APITokenFile string `toml:"api_token_file"`
+	ZoneID       string `toml:"zone_id"` // optional, auto-detected if empty
+}
+
+// ACMEDuckDNSConfig holds DuckDNS settings.
+type ACMEDuckDNSConfig struct {
+	TokenFile string `toml:"token_file"`
+}
+
+// ACMERoute53Config holds AWS Route 53 settings.
+type ACMERoute53Config struct {
+	AccessKeyID        string `toml:"access_key_id"`
+	SecretAccessKeyFile string `toml:"secret_access_key_file"`
+	HostedZoneID       string `toml:"hosted_zone_id"`
+	Region             string `toml:"region"`
+}
+
+// ACMEExecConfig holds settings for an external DNS challenge script.
+type ACMEExecConfig struct {
+	CreateCommand  string `toml:"create_command"`  // called with: <domain> <token> <key_auth>
+	CleanupCommand string `toml:"cleanup_command"` // called with: <domain> <token> <key_auth>
 }
 
 type ScannerConfig struct {

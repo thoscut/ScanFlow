@@ -354,3 +354,47 @@ func TestStartScanWithOcrDisabled(t *testing.T) {
 		t.Fatal("expected ocr_enabled to be false")
 	}
 }
+
+func TestSecurityHeadersPresent(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest("GET", "/api/v1/health", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	headers := map[string]string{
+		"X-Content-Type-Options": "nosniff",
+		"X-Frame-Options":       "DENY",
+		"Content-Security-Policy": "default-src 'self'",
+		"Referrer-Policy":        "strict-origin-when-cross-origin",
+	}
+	for hdr, want := range headers {
+		got := w.Header().Get(hdr)
+		if got != want {
+			t.Errorf("header %s = %q, want %q", hdr, got, want)
+		}
+	}
+}
+
+func TestUpdateSettingsRejectsInvalidOCRLang(t *testing.T) {
+	srv := newTestServer(t)
+
+	body, _ := json.Marshal(settingsResponse{
+		OcrEnabled:  true,
+		OcrLanguage: "eng; rm -rf /",
+	})
+
+	req := httptest.NewRequest("PUT", "/api/v1/settings", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid OCR language, got %d: %s", w.Code, w.Body.String())
+	}
+}

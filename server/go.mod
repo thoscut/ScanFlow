@@ -10,9 +10,11 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hirochachacha/go-smb2 v1.1.0
 	github.com/pelletier/go-toml/v2 v2.2.2
+	golang.org/x/crypto v0.36.0
 )
 
 require (
 	github.com/geoffgarside/ber v1.1.0 // indirect
-	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de // indirect
+	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 )

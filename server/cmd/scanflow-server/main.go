@@ -166,7 +166,7 @@ func main() {
 		}
 	}()
 
-	if err := srv.Start(); err != nil {
+	if err := srv.Start(ctx); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
 	}
