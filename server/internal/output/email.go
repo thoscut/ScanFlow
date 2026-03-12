@@ -116,12 +116,10 @@ func (h *EmailHandler) Send(_ context.Context, doc *jobs.Document) error {
 // sanitizeMIMEValue removes characters that could cause MIME header injection
 // (newlines, carriage returns, null bytes, and double quotes).
 func sanitizeMIMEValue(v string) string {
-	result := make([]byte, 0, len(v))
-	for i := 0; i < len(v); i++ {
-		c := v[i]
-		if c != '\r' && c != '\n' && c != 0 && c != '"' {
-			result = append(result, c)
+	return strings.Map(func(r rune) rune {
+		if r == '\r' || r == '\n' || r == 0 || r == '"' {
+			return -1
 		}
-	}
-	return string(result)
+		return r
+	}, v)
 }
