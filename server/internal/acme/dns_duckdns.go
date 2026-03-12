@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/thoscut/scanflow/server/internal/config"
 )
@@ -102,10 +103,8 @@ func (s *duckDNSSolver) CleanUp(ctx context.Context, domain, token, keyAuth stri
 // extractDuckDNSSubdomain extracts the DuckDNS subdomain from a full domain.
 // e.g. "myscanner.duckdns.org" -> "myscanner"
 func extractDuckDNSSubdomain(domain string) string {
-	for i := 0; i < len(domain); i++ {
-		if domain[i] == '.' {
-			return domain[:i]
-		}
+	if sub, _, ok := strings.Cut(domain, "."); ok {
+		return sub
 	}
 	return domain
 }

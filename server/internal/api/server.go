@@ -19,16 +19,17 @@ import (
 
 // Server is the HTTP API server.
 type Server struct {
-	cfg       *config.Config
-	router    chi.Router
-	scanner   *scanner.Scanner
-	jobQueue  *jobs.Queue
-	profiles  *config.ProfileStore
-	processor *processor.Pipeline
-	outputs   *output.Manager
-	wsHub     *WebSocketHub
-	server    *http.Server
-	acmeMgr   *acme.Manager
+	cfg         *config.Config
+	router      chi.Router
+	scanner     *scanner.Scanner
+	jobQueue    *jobs.Queue
+	profiles    *config.ProfileStore
+	processor   *processor.Pipeline
+	outputs     *output.Manager
+	wsHub       *WebSocketHub
+	server      *http.Server
+	acmeMgr     *acme.Manager
+	acmeHTTPSrv *http.Server // port 80 listener for ACME HTTP-01 challenges
 }
 
 // NewServer creates a new API server.
@@ -166,16 +167,16 @@ func (s *Server) startACME(ctx context.Context) error {
 
 	// If using HTTP-01, start a redirect handler on port 80.
 	if handler := mgr.HTTPHandler(nil); handler != nil {
+		httpAddr := fmt.Sprintf("%s:80", s.cfg.Server.Host)
+		s.acmeHTTPSrv = &http.Server{
+			Addr:         httpAddr,
+			Handler:      handler,
+			ReadTimeout:  10 * time.Second,
+			WriteTimeout: 10 * time.Second,
+		}
 		go func() {
-			httpAddr := fmt.Sprintf("%s:80", s.cfg.Server.Host)
-			httpServer := &http.Server{
-				Addr:         httpAddr,
-				Handler:      handler,
-				ReadTimeout:  10 * time.Second,
-				WriteTimeout: 10 * time.Second,
-			}
 			slog.Info("ACME HTTP challenge listener starting", "addr", httpAddr)
-			if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			if err := s.acmeHTTPSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				slog.Error("ACME HTTP listener error", "error", err)
 			}
 		}()
@@ -188,6 +189,11 @@ func (s *Server) startACME(ctx context.Context) error {
 // Shutdown gracefully stops the server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	slog.Info("API server shutting down")
+	if s.acmeHTTPSrv != nil {
+		if err := s.acmeHTTPSrv.Shutdown(ctx); err != nil {
+			slog.Warn("ACME HTTP listener shutdown error", "error", err)
+		}
+	}
 	return s.server.Shutdown(ctx)
 }
 

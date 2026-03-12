@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"log/slog"
@@ -63,6 +64,11 @@ func (s *route53Solver) CleanUp(ctx context.Context, domain, token, keyAuth stri
 func (s *route53Solver) changeRecord(ctx context.Context, action, domain, value string) error {
 	recordName := challengeRecordName(domain)
 
+	// XML-escape user-controlled values to prevent injection.
+	safeAction := xmlEscape(action)
+	safeName := xmlEscape(recordName)
+	safeValue := xmlEscape(value)
+
 	body := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/2013-04-01/">
   <ChangeBatch>
@@ -82,7 +88,7 @@ func (s *route53Solver) changeRecord(ctx context.Context, action, domain, value 
       </Change>
     </Changes>
   </ChangeBatch>
-</ChangeResourceRecordSetsRequest>`, action, recordName, value)
+</ChangeResourceRecordSetsRequest>`, safeAction, safeName, safeValue)
 
 	url := fmt.Sprintf("https://route53.amazonaws.com/2013-04-01/hostedzone/%s/rrset",
 		s.hostedZoneID)
@@ -171,4 +177,11 @@ func getSignatureKey(key, dateStamp, region, service string) []byte {
 	kService := hmacSHA256(kRegion, []byte(service))
 	kSigning := hmacSHA256(kService, []byte("aws4_request"))
 	return kSigning
+}
+
+// xmlEscape returns the XML-escaped form of s.
+func xmlEscape(s string) string {
+	var buf strings.Builder
+	xml.EscapeText(&buf, []byte(s))
+	return buf.String()
 }

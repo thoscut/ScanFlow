@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/thoscut/scanflow/server/internal/config"
 )
@@ -133,9 +134,8 @@ func (s *cloudflareSolver) CleanUp(ctx context.Context, domain, token, keyAuth s
 // findZoneID locates the Cloudflare zone ID for the given domain.
 func (s *cloudflareSolver) findZoneID(ctx context.Context, domain string) (string, error) {
 	// Walk up the domain to find the zone.
-	parts := splitDomain(domain)
-	for i := range parts {
-		candidate := joinDomain(parts[i:])
+	candidate := domain
+	for candidate != "" {
 		url := fmt.Sprintf("%s/zones?name=%s", cloudflareAPIBase, candidate)
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
@@ -159,36 +159,14 @@ func (s *cloudflareSolver) findZoneID(ctx context.Context, domain string) (strin
 		if len(result.Result) > 0 {
 			return result.Result[0].ID, nil
 		}
+
+		// Move up one level: "sub.example.com" -> "example.com"
+		if idx := strings.IndexByte(candidate, '.'); idx >= 0 {
+			candidate = candidate[idx+1:]
+		} else {
+			break
+		}
 	}
 
 	return "", fmt.Errorf("no Cloudflare zone found for %s", domain)
-}
-
-func splitDomain(domain string) []string {
-	var parts []string
-	for domain != "" {
-		parts = append(parts, domain)
-		idx := indexOf(domain, '.')
-		if idx < 0 {
-			break
-		}
-		domain = domain[idx+1:]
-	}
-	return parts
-}
-
-func joinDomain(parts []string) string {
-	if len(parts) == 0 {
-		return ""
-	}
-	return parts[0]
-}
-
-func indexOf(s string, c byte) int {
-	for i := 0; i < len(s); i++ {
-		if s[i] == c {
-			return i
-		}
-	}
-	return -1
 }

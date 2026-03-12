@@ -247,12 +247,12 @@ func (m *Manager) obtainDNSCertificate(ctx context.Context) error {
 	// Register account (no-op if already registered).
 	acct := &acme.Account{Contact: []string{"mailto:" + m.cfg.Email}}
 	if _, err := m.acmeClient.Register(ctx, acct, acme.AcceptTOS); err != nil {
-		// Ignore "already registered" errors.
-		if acmeErr, ok := err.(*acme.Error); !ok || acmeErr.StatusCode != 409 {
-			// Try GetReg for existing accounts.
-			if _, regErr := m.acmeClient.GetReg(ctx, ""); regErr != nil {
-				return fmt.Errorf("ACME register: %w", err)
-			}
+		// Handle "already registered" (409 Conflict) by retrieving the existing account.
+		acmeErr, ok := err.(*acme.Error)
+		if ok && acmeErr.StatusCode == 409 {
+			// Already registered, this is fine.
+		} else if _, regErr := m.acmeClient.GetReg(ctx, ""); regErr != nil {
+			return fmt.Errorf("ACME register: %w", err)
 		}
 	}
 
@@ -306,7 +306,9 @@ func (m *Manager) obtainDNSCertificate(ctx context.Context) error {
 		slog.Info("waiting for DNS propagation", "domain", domain, "wait", wait)
 		select {
 		case <-ctx.Done():
-			_ = m.dnsSolver.CleanUp(context.Background(), domain, challenge.Token, keyAuth)
+			cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cleanupCancel()
+			_ = m.dnsSolver.CleanUp(cleanupCtx, domain, challenge.Token, keyAuth)
 			return ctx.Err()
 		case <-time.After(wait):
 		}
