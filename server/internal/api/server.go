@@ -60,6 +60,7 @@ func (s *Server) setupRouter() {
 	r.Use(SecurityHeadersMiddleware)
 	r.Use(MaxBodyMiddleware)
 	r.Use(CORSMiddleware())
+	r.Use(RateLimitMiddleware(10, 20))
 
 	// Health check (no auth required)
 	r.Get("/api/v1/health", s.handleHealth)

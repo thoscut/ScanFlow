@@ -10,6 +10,7 @@
 - OCR language input validation to block command injection via Tesseract arguments
 - Authentication failure logging for security monitoring
 - Configurable CORS origins (backward-compatible wildcard default)
+- Rate limiting middleware to protect against brute-force API key guessing
 - TLS certificate auto-renewal via Let's Encrypt with HTTP-01 and DNS-01 challenges
 - Built-in service installation for Linux (systemd) and Windows
 - Release artifact checksums (SHA-256) published with every release
@@ -19,7 +20,6 @@
 - Improve output handler coverage and regression tests
 - Strengthen release artifacts with packaged archives for each platform
 - Improve troubleshooting guidance for scanner permissions, OCR and Paperless connectivity
-- Add rate limiting middleware to protect against brute-force API key guessing
 - Startup configuration validation to catch invalid settings before serving traffic
 - Scan and processing operation timeouts to prevent indefinite hangs
 - Readiness probe endpoint (`/api/v1/ready`) for container orchestration

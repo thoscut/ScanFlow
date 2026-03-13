@@ -151,3 +151,58 @@ func TestAuthMiddlewareRejectsEmptyKeys(t *testing.T) {
 		t.Fatalf("expected 401, got %d", w.Code)
 	}
 }
+
+func TestRateLimitMiddlewareAllowsNormalRequests(t *testing.T) {
+	handler := RateLimitMiddleware(10, 5)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	for i := 0; i < 5; i++ {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.RemoteAddr = "192.168.1.1:12345"
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("request %d: expected 200, got %d", i, w.Code)
+		}
+	}
+}
+
+func TestRateLimitMiddlewareReturns429WhenExceeded(t *testing.T) {
+	burst := 3
+	handler := RateLimitMiddleware(0.1, burst)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Exhaust the burst allowance.
+	for i := 0; i < burst; i++ {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.RemoteAddr = "10.0.0.1:9999"
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("request %d: expected 200, got %d", i, w.Code)
+		}
+	}
+
+	// Next request should be rate limited.
+	req := httptest.NewRequest("GET", "/", nil)
+	req.RemoteAddr = "10.0.0.1:9999"
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429, got %d", w.Code)
+	}
+
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected application/json content-type, got %q", ct)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, `"error"`) {
+		t.Fatalf("expected JSON error response, got %q", body)
+	}
+}
