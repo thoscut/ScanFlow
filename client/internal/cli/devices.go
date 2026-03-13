@@ -12,6 +12,7 @@ import (
 var devicesCmd = &cobra.Command{
 	Use:   "devices",
 	Short: "List available scanner devices",
+	Long:  "List all scanner devices detected by the ScanFlow server.",
 	RunE:  runDevices,
 }
 

@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/thoscut/scanflow/client/internal/client"
@@ -15,6 +16,7 @@ type scanModel struct {
 	config   *config.Config
 	job      *client.ScanJob
 	status   string
+	profile  string
 	pages    int
 	progress int
 	err      error
@@ -37,10 +39,15 @@ type scanErrorMsg struct {
 type scanCompleteMsg struct{}
 
 func newScanModel(c *client.Client, cfg *config.Config) scanModel {
+	profile := cfg.Defaults.Profile
+	if profile == "" {
+		profile = "standard"
+	}
 	return scanModel{
-		client: c,
-		config: cfg,
-		status: "Preparing...",
+		client:  c,
+		config:  cfg,
+		status:  "Preparing...",
+		profile: profile,
 	}
 }
 
@@ -131,10 +138,11 @@ func (m scanModel) view() string {
 	}
 
 	if m.job != nil {
-		s += fmt.Sprintf("Job:    %s\n", m.job.ID[:8])
+		s += fmt.Sprintf("Job:     %s...\n", m.job.ID[:8])
 	}
-	s += fmt.Sprintf("Status: %s\n", m.status)
-	s += fmt.Sprintf("Pages:  %d\n", m.pages)
+	s += fmt.Sprintf("Profile: %s\n", m.profile)
+	s += fmt.Sprintf("Status:  %s\n", m.status)
+	s += fmt.Sprintf("Pages:   %d\n", m.pages)
 
 	if m.progress > 0 && m.progress < 100 {
 		barWidth := 30
@@ -199,6 +207,8 @@ func (m scanModel) pollJob() tea.Cmd {
 		if m.job == nil {
 			return nil
 		}
+		// Small delay to avoid hammering the server
+		time.Sleep(500 * time.Millisecond)
 		job, err := m.client.GetJobStatus(context.Background(), m.job.ID)
 		if err != nil {
 			return scanErrorMsg{err: err}

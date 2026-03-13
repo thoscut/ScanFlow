@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -79,13 +80,10 @@ func (c *Client) WaitForJob(ctx context.Context, jobID string, onUpdate func(Sca
 }
 
 func (c *Client) pollJobStatus(ctx context.Context, jobID string, onUpdate func(ScanJob)) (*ScanJob, error) {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
 
+	for {
 		job, err := c.GetJobStatus(ctx, jobID)
 		if err != nil {
 			return nil, err
@@ -100,11 +98,10 @@ func (c *Client) pollJobStatus(ctx context.Context, jobID string, onUpdate func(
 			return job, nil
 		}
 
-		// Wait before next poll
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		default:
+		case <-ticker.C:
 		}
 	}
 }

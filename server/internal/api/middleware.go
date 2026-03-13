@@ -51,7 +51,9 @@ func AuthMiddleware(validKeys []string) func(http.Handler) http.Handler {
 				"remote_addr", r.RemoteAddr,
 				"method", r.Method,
 				"path", r.URL.Path)
-			http.Error(w, `{"error": "unauthorized"}`, http.StatusUnauthorized)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
 		})
 	}
 }

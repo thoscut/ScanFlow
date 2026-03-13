@@ -126,12 +126,6 @@ h2 {
     margin-bottom: 10px;
 }
 
-.job-card .job-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-}
-
 .job-card .job-id {
     font-family: monospace;
     color: #aaa;
@@ -150,6 +144,7 @@ h2 {
 .job-status.processing { background: #2196f3; }
 .job-status.completed { background: #4caf50; }
 .job-status.failed { background: #f44336; }
+.job-status.cancelled { background: #9e9e9e; }
 
 .progress-bar {
     height: 6px;
@@ -251,4 +246,78 @@ h2 {
 
 .btn-secondary:hover {
     background: #444;
+}
+
+.btn-cancel {
+    padding: 4px 12px;
+    border: 1px solid #f44336;
+    border-radius: 4px;
+    background: transparent;
+    color: #f44336;
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-cancel:hover {
+    background: #f44336;
+    color: #fff;
+}
+
+.job-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.job-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.job-details {
+    font-size: 0.9em;
+    color: #aaa;
+}
+
+/* Toast notifications */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.toast {
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    color: #fff;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: opacity 0.3s, transform 0.3s;
+    max-width: 360px;
+    word-break: break-word;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast-info {
+    background: #2196f3;
+}
+
+.toast-success {
+    background: #4caf50;
+}
+
+.toast-error {
+    background: #f44336;
 }

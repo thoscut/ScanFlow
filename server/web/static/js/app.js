@@ -3,12 +3,52 @@
 const API_BASE = window.location.origin;
 let ws = null;
 
+// Escape HTML to prevent XSS
+function escapeHTML(str) {
+    if (str == null) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
+// Toast notifications instead of alert()
+function showToast(message, type) {
+    type = type || 'info';
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-' + type;
+    toast.textContent = message;
+    container.appendChild(toast);
+    // Trigger animation
+    requestAnimationFrame(() => { toast.classList.add('show'); });
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+// Status labels
+const STATUS_LABELS = {
+    pending: 'Pending',
+    scanning: 'Scanning',
+    processing: 'Processing',
+    completed: 'Completed',
+    failed: 'Failed',
+    cancelled: 'Cancelled'
+};
+
+function statusLabel(status) {
+    return STATUS_LABELS[status] || status;
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     checkStatus();
     loadDevices();
     loadProfiles();
     loadSettings();
+    loadJobs();
     connectWebSocket();
 
     // Refresh status periodically
@@ -41,12 +81,13 @@ async function checkStatus() {
         const dot = document.querySelector('.status .dot');
         const text = document.getElementById('status-text');
         dot.className = 'dot connected';
-        text.textContent = `Verbunden (${status.devices} Scanner)`;
+        const scannerWord = status.devices === 1 ? 'scanner' : 'scanners';
+        text.textContent = 'Connected (' + status.devices + ' ' + scannerWord + ')';
     } catch (err) {
         const dot = document.querySelector('.status .dot');
         const text = document.getElementById('status-text');
         dot.className = 'dot error';
-        text.textContent = 'Nicht verbunden';
+        text.textContent = 'Not connected';
     }
 }
 
@@ -56,19 +97,19 @@ async function loadDevices() {
     try {
         const data = await apiRequest('GET', '/api/v1/scanner/devices');
         if (data.devices.length === 0) {
-            container.innerHTML = '<div class="empty-state">Kein Scanner gefunden</div>';
+            container.innerHTML = '<div class="empty-state">No scanners found</div>';
             return;
         }
         container.innerHTML = data.devices.map(d => `
             <div class="device-card">
                 <div>
-                    <div class="device-name">${d.vendor} ${d.model}</div>
-                    <div class="device-model">${d.name}</div>
+                    <div class="device-name">${escapeHTML(d.vendor)} ${escapeHTML(d.model)}</div>
+                    <div class="device-model">${escapeHTML(d.name)}</div>
                 </div>
             </div>
         `).join('');
     } catch (err) {
-        container.innerHTML = '<div class="empty-state">Fehler beim Laden</div>';
+        container.innerHTML = '<div class="empty-state">Failed to load scanners</div>';
     }
 }
 
@@ -77,9 +118,11 @@ async function loadProfiles() {
     try {
         const data = await apiRequest('GET', '/api/v1/profiles');
         const select = document.getElementById('profile-select');
-        select.innerHTML = data.profiles.map(p => `
-            <option value="${p.profile.name}">${p.profile.name} - ${p.profile.description}</option>
-        `).join('');
+        if (data.profiles && data.profiles.length > 0) {
+            select.innerHTML = data.profiles.map(p => `
+                <option value="${escapeHTML(p.profile.name)}">${escapeHTML(p.profile.name)} - ${escapeHTML(p.profile.description)}</option>
+            `).join('');
+        }
     } catch (err) {
         console.error('Failed to load profiles:', err);
     }
@@ -108,9 +151,23 @@ async function saveSettings() {
         });
         // Sync the per-scan checkbox with the new default
         document.getElementById('ocr-checkbox').checked = ocrEnabled;
-        alert('Einstellungen gespeichert');
+        showToast('Settings saved', 'success');
     } catch (err) {
-        alert('Fehler: ' + err.message);
+        showToast('Error: ' + err.message, 'error');
+    }
+}
+
+// Load existing jobs on page load
+async function loadJobs() {
+    // The status endpoint gives us total_jobs count, but we need to check
+    // if there are active jobs. We'll load them via the status endpoint.
+    try {
+        const status = await apiRequest('GET', '/api/v1/status');
+        if (status.active_jobs === 0 && status.total_jobs === 0) {
+            return; // Keep "No active jobs" message
+        }
+    } catch (err) {
+        // Ignore - jobs list stays as default
     }
 }
 
@@ -139,11 +196,32 @@ async function startScan() {
         const job = await apiRequest('POST', '/api/v1/scan', req);
         addJobCard(job);
         document.getElementById('title-input').value = '';
+        showToast('Scan started', 'success');
     } catch (err) {
-        alert('Scan fehlgeschlagen: ' + err.message);
+        showToast('Scan failed: ' + err.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Scan starten';
+        btn.textContent = 'Start Scan';
+    }
+}
+
+// Cancel a job
+async function cancelJob(jobId) {
+    try {
+        await apiRequest('DELETE', '/api/v1/scan/' + jobId);
+        showToast('Job cancelled', 'info');
+        const card = document.getElementById('job-' + jobId);
+        if (card) {
+            const statusEl = card.querySelector('.job-status');
+            if (statusEl) {
+                statusEl.textContent = 'Cancelled';
+                statusEl.className = 'job-status cancelled';
+            }
+            const cancelBtn = card.querySelector('.btn-cancel');
+            if (cancelBtn) cancelBtn.remove();
+        }
+    } catch (err) {
+        showToast('Cancel failed: ' + err.message, 'error');
     }
 }
 
@@ -155,17 +233,25 @@ function addJobCard(job) {
     const emptyState = container.querySelector('.empty-state');
     if (emptyState) emptyState.remove();
 
+    // Don't add duplicate cards
+    if (document.getElementById('job-' + job.id)) return;
+
+    const isActive = job.status === 'pending' || job.status === 'scanning' || job.status === 'processing';
+
     const card = document.createElement('div');
     card.className = 'job-card';
     card.id = 'job-' + job.id;
     card.innerHTML = `
         <div class="job-header">
-            <span class="job-id">${job.id.substring(0, 8)}</span>
-            <span class="job-status ${job.status}">${job.status}</span>
+            <span class="job-id">${escapeHTML(job.id.slice(0, 8))}...</span>
+            <div class="job-header-right">
+                ${isActive ? '<button class="btn btn-cancel" onclick="cancelJob(\'' + escapeHTML(job.id) + '\')">Cancel</button>' : ''}
+                <span class="job-status ${escapeHTML(job.status)}">${escapeHTML(statusLabel(job.status))}</span>
+            </div>
         </div>
-        <div>Profil: ${job.profile} | Seiten: ${job.pages ? job.pages.length : 0}</div>
+        <div class="job-details">Profile: ${escapeHTML(job.profile)} | Pages: <span class="job-pages">${job.pages ? job.pages.length : 0}</span></div>
         <div class="progress-bar" style="margin-top: 8px;">
-            <div class="fill" style="width: ${job.progress || 0}%"></div>
+            <div class="fill" style="width: ${parseInt(job.progress) || 0}%"></div>
         </div>
     `;
 
@@ -178,13 +264,19 @@ function updateJobCard(update) {
 
     const statusEl = card.querySelector('.job-status');
     if (statusEl && update.status) {
-        statusEl.textContent = update.status;
+        statusEl.textContent = statusLabel(update.status);
         statusEl.className = 'job-status ' + update.status;
     }
 
     const progressBar = card.querySelector('.fill');
     if (progressBar && update.progress !== undefined) {
         progressBar.style.width = update.progress + '%';
+    }
+
+    // Remove cancel button for terminal states
+    if (update.status === 'completed' || update.status === 'failed' || update.status === 'cancelled') {
+        const cancelBtn = card.querySelector('.btn-cancel');
+        if (cancelBtn) cancelBtn.remove();
     }
 }
 

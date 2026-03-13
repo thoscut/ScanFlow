@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -75,11 +77,18 @@ func runScan(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Printf("Starting scan (profile: %s)...\n", profile)
+	fmt.Printf("Starting scan (profile: %s, output: %s)...\n", profile, outputStr)
 
 	job, err := c.StartScan(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("start scan: %w", err)
+	}
+
+	jsonOutput, _ := cmd.Flags().GetBool("json")
+	if jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(job)
 	}
 
 	fmt.Printf("Job ID: %s\n", job.ID)
@@ -136,8 +145,17 @@ func runInteractiveScan(cmd *cobra.Command, c *client.Client) error {
 	fmt.Printf("Job ID: %s\n", job.ID)
 	fmt.Println("Scanning...")
 
-	// Wait for initial scan to complete
-	time.Sleep(2 * time.Second)
+	// Poll until scanning state is reached or done
+	for i := 0; i < 20; i++ {
+		time.Sleep(500 * time.Millisecond)
+		job, err = c.GetJobStatus(cmd.Context(), job.ID)
+		if err != nil {
+			return err
+		}
+		if job.Status != "pending" {
+			break
+		}
+	}
 
 	for {
 		job, err = c.GetJobStatus(cmd.Context(), job.ID)
@@ -145,7 +163,12 @@ func runInteractiveScan(cmd *cobra.Command, c *client.Client) error {
 			return err
 		}
 
-		fmt.Printf("\n%d pages scanned\n", len(job.Pages))
+		if job.Status == "completed" || job.Status == "failed" || job.Status == "cancelled" {
+			fmt.Printf("\nScan %s (%d pages)\n", job.Status, len(job.Pages))
+			return nil
+		}
+
+		fmt.Printf("\n%d page(s) scanned\n", len(job.Pages))
 		fmt.Println()
 		fmt.Println("[W] Scan more pages")
 		fmt.Println("[F] Finish and create PDF")
@@ -162,8 +185,24 @@ func runInteractiveScan(cmd *cobra.Command, c *client.Client) error {
 			fmt.Println("Scanning more pages...")
 			if err := c.ContinueScan(cmd.Context(), job.ID); err != nil {
 				fmt.Printf("Error: %v\n", err)
+				continue
 			}
-			time.Sleep(2 * time.Second)
+			// Poll until scan activity settles
+			prevPages := len(job.Pages)
+			for i := 0; i < 20; i++ {
+				time.Sleep(500 * time.Millisecond)
+				updated, err := c.GetJobStatus(cmd.Context(), job.ID)
+				if err != nil {
+					break
+				}
+				job = updated
+				if updated.Status != "scanning" {
+					break
+				}
+				if len(updated.Pages) > prevPages {
+					break
+				}
+			}
 
 		case "f":
 			outputStr, _ := cmd.Flags().GetString("output")
@@ -207,7 +246,7 @@ func runInteractiveScan(cmd *cobra.Command, c *client.Client) error {
 			return nil
 
 		default:
-			fmt.Println("Unknown option")
+			fmt.Println("Unknown option. Use W, F, D, or Q.")
 		}
 	}
 }
