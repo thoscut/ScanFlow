@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/thoscut/scanflow/client/internal/client"
@@ -206,6 +207,8 @@ func (m scanModel) pollJob() tea.Cmd {
 		if m.job == nil {
 			return nil
 		}
+		// Small delay to avoid hammering the server
+		time.Sleep(500 * time.Millisecond)
 		job, err := m.client.GetJobStatus(context.Background(), m.job.ID)
 		if err != nil {
 			return scanErrorMsg{err: err}

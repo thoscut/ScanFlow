@@ -144,6 +144,7 @@ h2 {
 .job-status.processing { background: #2196f3; }
 .job-status.completed { background: #4caf50; }
 .job-status.failed { background: #f44336; }
+.job-status.cancelled { background: #9e9e9e; }
 
 .progress-bar {
     height: 6px;

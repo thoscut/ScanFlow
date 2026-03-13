@@ -36,7 +36,11 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Server:      %s\n", cfg.Server.URL)
 	fmt.Printf("Status:      %s\n", status.Status)
 	fmt.Printf("Version:     %s\n", status.Version)
-	fmt.Printf("Scanner:     %v\n", status.Scanner)
+	if status.Scanner {
+		fmt.Printf("Scanner:     connected\n")
+	} else {
+		fmt.Printf("Scanner:     not connected\n")
+	}
 	fmt.Printf("Devices:     %d\n", status.Devices)
 	fmt.Printf("Active Jobs: %d\n", status.ActiveJobs)
 	fmt.Printf("Total Jobs:  %d\n", status.TotalJobs)

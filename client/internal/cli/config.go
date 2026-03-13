@@ -21,11 +21,13 @@ var configShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Show current configuration",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("server.url = %s\n", cfg.Server.URL)
-		fmt.Printf("server.api_key = %s\n", maskKey(cfg.Server.APIKey))
-		fmt.Printf("defaults.profile = %s\n", cfg.Defaults.Profile)
-		fmt.Printf("defaults.output = %s\n", cfg.Defaults.Output)
-		fmt.Printf("tui.theme = %s\n", cfg.TUI.Theme)
+		fmt.Println("Current configuration:")
+		fmt.Println()
+		fmt.Printf("  server.url        = %s\n", cfg.Server.URL)
+		fmt.Printf("  server.api_key    = %s\n", maskKey(cfg.Server.APIKey))
+		fmt.Printf("  defaults.profile  = %s\n", cfg.Defaults.Profile)
+		fmt.Printf("  defaults.output   = %s\n", cfg.Defaults.Output)
+		fmt.Printf("  tui.theme         = %s\n", cfg.TUI.Theme)
 		return nil
 	},
 }
