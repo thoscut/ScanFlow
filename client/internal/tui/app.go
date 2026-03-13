@@ -150,10 +150,10 @@ func (m mainModel) View() string {
 	}
 
 	menuItems := []string{
-		"Scan starten",
-		"Scanner anzeigen",
-		"Profile anzeigen",
-		"Beenden",
+		"Start scan",
+		"Show scanners",
+		"Show profiles",
+		"Quit",
 	}
 
 	for i, item := range menuItems {

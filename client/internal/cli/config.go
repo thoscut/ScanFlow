@@ -33,7 +33,13 @@ var configShowCmd = &cobra.Command{
 var configSetCmd = &cobra.Command{
 	Use:   "set [key] [value]",
 	Short: "Set a configuration value",
-	Args:  cobra.ExactArgs(2),
+	Long: `Set a configuration value. Valid keys:
+  server.url        Server URL (e.g. http://scanserver.local:8080)
+  server.api_key    API key for authentication
+  defaults.profile  Default scan profile name
+  defaults.output   Default output target (paperless, smb, filesystem)
+  tui.theme         TUI theme (dark, light)`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		key, value := args[0], args[1]
 
@@ -53,7 +59,13 @@ var configSetCmd = &cobra.Command{
 var configGetCmd = &cobra.Command{
 	Use:   "get [key]",
 	Short: "Get a configuration value",
-	Args:  cobra.ExactArgs(1),
+	Long: `Get a configuration value. Valid keys:
+  server.url        Server URL
+  server.api_key    API key
+  defaults.profile  Default scan profile
+  defaults.output   Default output target
+  tui.theme         TUI theme`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		value, err := cfg.Get(args[0])
 		if err != nil {

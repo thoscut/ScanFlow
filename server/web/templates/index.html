@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,75 +12,81 @@
             <h1>ScanFlow</h1>
             <div id="status-indicator" class="status">
                 <span class="dot"></span>
-                <span id="status-text">Verbinde...</span>
+                <span id="status-text">Connecting...</span>
             </div>
         </header>
 
         <main>
             <section id="scanner-section">
-                <h2>Scanner</h2>
-                <div id="devices-list"></div>
+                <h2>Scanners</h2>
+                <div id="devices-list">
+                    <div class="empty-state">Loading scanners...</div>
+                </div>
             </section>
 
             <section id="scan-section">
-                <h2>Neuer Scan</h2>
+                <h2>New Scan</h2>
                 <div class="form-group">
-                    <label for="profile-select">Profil:</label>
+                    <label for="profile-select">Profile:</label>
                     <select id="profile-select">
                         <option value="standard">Standard</option>
-                        <option value="oversize">Ueberlaenge</option>
-                        <option value="photo">Foto</option>
+                        <option value="oversize">Oversize</option>
+                        <option value="photo">Photo</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="output-select">Ausgabe:</label>
+                    <label for="output-select">Output:</label>
                     <select id="output-select">
                         <option value="paperless">Paperless-NGX</option>
-                        <option value="smb">Netzwerkfreigabe</option>
-                        <option value="filesystem">Lokal</option>
+                        <option value="smb">Network Share</option>
+                        <option value="filesystem">Local</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="title-input">Titel:</label>
+                    <label for="title-input">Title:</label>
                     <input type="text" id="title-input" placeholder="Optional">
                 </div>
                 <div class="form-group checkbox-group">
                     <label class="toggle-label">
                         <input type="checkbox" id="ocr-checkbox" checked>
                         <span class="toggle-switch"></span>
-                        <span>OCR aktivieren</span>
+                        <span>Enable OCR</span>
                     </label>
-                    <span class="hint">Texterkennung (kann deaktiviert werden wenn z.B. Paperless OCR uebernimmt)</span>
+                    <span class="hint">Text recognition (can be disabled if e.g. Paperless handles OCR)</span>
                 </div>
                 <button id="scan-btn" class="btn btn-primary" onclick="startScan()">
-                    Scan starten
-                </button>
-            </section>
-
-            <section id="settings-section">
-                <h2>Einstellungen</h2>
-                <div class="form-group checkbox-group">
-                    <label class="toggle-label">
-                        <input type="checkbox" id="settings-ocr-enabled" checked>
-                        <span class="toggle-switch"></span>
-                        <span>OCR standardmaessig aktiviert</span>
-                    </label>
-                    <span class="hint">Standard-Einstellung fuer neue Scans</span>
-                </div>
-                <div class="form-group">
-                    <label for="settings-ocr-language">OCR Sprache:</label>
-                    <input type="text" id="settings-ocr-language" value="deu+eng" placeholder="z.B. deu+eng">
-                </div>
-                <button class="btn btn-secondary" onclick="saveSettings()">
-                    Einstellungen speichern
+                    Start Scan
                 </button>
             </section>
 
             <section id="jobs-section">
-                <h2>Aktive Jobs</h2>
-                <div id="jobs-list"></div>
+                <h2>Jobs</h2>
+                <div id="jobs-list">
+                    <div class="empty-state">No active jobs</div>
+                </div>
+            </section>
+
+            <section id="settings-section">
+                <h2>Settings</h2>
+                <div class="form-group checkbox-group">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="settings-ocr-enabled" checked>
+                        <span class="toggle-switch"></span>
+                        <span>OCR enabled by default</span>
+                    </label>
+                    <span class="hint">Default setting for new scans</span>
+                </div>
+                <div class="form-group">
+                    <label for="settings-ocr-language">OCR Language:</label>
+                    <input type="text" id="settings-ocr-language" value="deu+eng" placeholder="e.g. deu+eng">
+                </div>
+                <button class="btn btn-secondary" onclick="saveSettings()">
+                    Save Settings
+                </button>
             </section>
         </main>
+
+        <div id="toast-container"></div>
     </div>
     <script src="/static/js/app.js"></script>
 </body>
