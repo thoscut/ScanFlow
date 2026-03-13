@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/thoscut/scanflow/server/internal/config"
@@ -218,5 +220,144 @@ func TestManagerSendRetriesExhausted(t *testing.T) {
 	// 1 initial + 3 retries = 4 calls
 	if mock.calls != 4 {
 		t.Fatalf("expected 4 calls, got %d", mock.calls)
+	}
+}
+
+// --- Integration tests with mock HTTP services ---
+
+func TestPaperlessHandlerSendSuccess(t *testing.T) {
+	// Create a mock Paperless-NGX server that accepts uploads
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/documents/post_document/" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Token test-token" {
+			t.Errorf("missing or wrong auth header")
+		}
+		// Verify multipart form
+		if err := r.ParseMultipartForm(10 << 20); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		_, _, err := r.FormFile("document")
+		if err != nil {
+			t.Fatalf("missing document field: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"task_id": "abc-123"})
+	}))
+	defer srv.Close()
+
+	handler := NewPaperlessHandler(config.PaperlessConfig{
+		URL:   srv.URL,
+		Token: "test-token",
+	})
+
+	doc := &jobs.Document{
+		Filename: "test.pdf",
+		Title:    "Test Document",
+		Reader:   strings.NewReader("fake pdf content"),
+		Size:     16,
+	}
+	err := handler.Send(context.Background(), doc)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+}
+
+func TestPaperlessHandlerSendServerError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("internal server error"))
+	}))
+	defer srv.Close()
+
+	handler := NewPaperlessHandler(config.PaperlessConfig{
+		URL:   srv.URL,
+		Token: "test-token",
+	})
+
+	doc := &jobs.Document{
+		Filename: "test.pdf",
+		Reader:   strings.NewReader("fake pdf"),
+		Size:     8,
+	}
+	err := handler.Send(context.Background(), doc)
+	if err == nil {
+		t.Fatal("expected error for server error response")
+	}
+}
+
+func TestPaperlessHandlerGetTaskStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		taskID := r.URL.Query().Get("task_id")
+		if taskID == "" {
+			t.Error("missing task_id parameter")
+		}
+		json.NewEncoder(w).Encode([]map[string]string{{"status": "SUCCESS"}})
+	}))
+	defer srv.Close()
+
+	handler := NewPaperlessHandler(config.PaperlessConfig{
+		URL:   srv.URL,
+		Token: "test-token",
+	})
+
+	status, err := handler.GetTaskStatus(context.Background(), "task-123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if status != "SUCCESS" {
+		t.Fatalf("expected SUCCESS, got %s", status)
+	}
+}
+
+func TestEmailHandlerSanitizesHeaders(t *testing.T) {
+	// Test that MIME header injection is prevented
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"normal.pdf", "normal.pdf"},
+		{"file\r\nBcc: evil@attacker.com", "fileBcc: evil@attacker.com"},
+		{"file\x00.pdf", "file.pdf"},
+		{`file"name.pdf`, "filename.pdf"},
+	}
+	for _, tt := range tests {
+		result := sanitizeMIMEValue(tt.input)
+		if result != tt.expected {
+			t.Errorf("sanitizeMIMEValue(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
+
+func TestFilesystemHandlerConcurrentWrites(t *testing.T) {
+	dir := t.TempDir()
+	handler := NewFilesystemHandler(dir)
+
+	// Write multiple documents concurrently
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			doc := &jobs.Document{
+				Filename: fmt.Sprintf("doc_%d.pdf", n),
+				Reader:   strings.NewReader(fmt.Sprintf("content %d", n)),
+				Size:     9,
+			}
+			if err := handler.Send(context.Background(), doc); err != nil {
+				t.Errorf("concurrent write %d failed: %v", n, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Verify all files exist
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 5 {
+		t.Fatalf("expected 5 files, got %d", len(entries))
 	}
 }
