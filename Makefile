@@ -103,3 +103,18 @@ install-server: build-server
 install-client: build-client
 	sudo cp dist/scanflow /usr/local/bin/
 	@echo "ScanFlow client installed."
+
+# --- SBOM ---
+
+.PHONY: sbom
+sbom: build-server build-client
+	@mkdir -p dist
+	@echo '{"bomFormat":"CycloneDX","specVersion":"1.5","version":1,"components":[' > dist/sbom-server.cdx.json
+	cd server && go version -m ../dist/scanflow-server | awk '/dep/ {printf "{\"type\":\"library\",\"name\":\"%s\",\"version\":\"%s\"},", $$3, $$4}' >> ../dist/sbom-server.cdx.json
+	@sed -i '$$ s/,$$//' dist/sbom-server.cdx.json
+	@echo ']}' >> dist/sbom-server.cdx.json
+	@echo '{"bomFormat":"CycloneDX","specVersion":"1.5","version":1,"components":[' > dist/sbom-client.cdx.json
+	cd client && go version -m ../dist/scanflow | awk '/dep/ {printf "{\"type\":\"library\",\"name\":\"%s\",\"version\":\"%s\"},", $$3, $$4}' >> ../dist/sbom-client.cdx.json
+	@sed -i '$$ s/,$$//' dist/sbom-client.cdx.json
+	@echo ']}' >> dist/sbom-client.cdx.json
+	@echo "SBOMs generated: dist/sbom-server.cdx.json dist/sbom-client.cdx.json"

@@ -32,16 +32,17 @@
 - Docker image build and publish in the release workflow
 - Retry handling with exponential backoff for long-running uploads
 - Operations and troubleshooting runbook
+- Richer document post-processing pipeline options (grayscale conversion, brightness/contrast adjustment, exposure normalization)
+- SBOM generation in CycloneDX format for release artifacts
+- Upgrade and migration path documentation
+- Performance tuning guide for high-throughput environments
 
 ## Long Term
 
 - Native packaging for Linux distributions
 - Better remote fleet management for multiple ScanFlow servers
-- Richer document post-processing pipeline options
-- Optional signed release artifacts and SBOM generation
+- Optional signed release artifacts
 - Role-based access control for multi-user environments
 - Encrypted at-rest storage for scanned documents
 - Backup and disaster recovery tooling
-- Upgrade and migration path documentation
-- Performance tuning guide for high-throughput environments
 - Horizontal scaling and high-availability support

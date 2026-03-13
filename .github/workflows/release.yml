@@ -139,11 +139,22 @@ jobs:
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         run: ./dist/${{ matrix.binary }} --version
 
+      - name: Generate SBOM
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          go version -m dist/${{ matrix.binary }} | awk '
+            BEGIN { printf "{\"bomFormat\":\"CycloneDX\",\"specVersion\":\"1.5\",\"version\":1,\"components\":[" }
+            /dep/ { if(n++) printf ","; printf "{\"type\":\"library\",\"name\":\"%s\",\"version\":\"%s\"}", $3, $4 }
+            END { print "]}" }
+          ' > dist/${{ matrix.binary }}.sbom.cdx.json
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.binary }}
-          path: dist/${{ matrix.binary }}
+          path: |
+            dist/${{ matrix.binary }}
+            dist/${{ matrix.binary }}.sbom.cdx.json
 
   build-docs:
     name: Build Documentation
@@ -196,12 +207,17 @@ jobs:
                 *.exe)
                   zip -j "packages/${file}.zip" "$file"
                   ;;
+                *.sbom.cdx.json)
+                  cp "$file" "packages/"
+                  ;;
                 *)
                   tar -czf "packages/${file}.tar.gz" "$file"
                   ;;
               esac
             fi
           done
+          # Copy any SBOM files
+          cp -f *.sbom.cdx.json packages/ 2>/dev/null || true
           cp scanflow-docs.tar.gz packages/
           sha256sum packages/* > checksums.txt
 

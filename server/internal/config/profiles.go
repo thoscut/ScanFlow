@@ -35,6 +35,11 @@ type ProfileProcessing struct {
 	Deskew           bool           `toml:"deskew"`
 	RemoveBlankPages bool           `toml:"remove_blank_pages"`
 	BlankThreshold   float64        `toml:"blank_threshold"`
+	AutoRotate       bool           `toml:"auto_rotate"`
+	ColorToGrayscale bool           `toml:"color_to_grayscale"`
+	BrightnessAdjust float64        `toml:"brightness_adjust"`
+	ContrastAdjust   float64        `toml:"contrast_adjust"`
+	NormalizeExposure bool          `toml:"normalize_exposure"`
 	OCR              ProfileOCR     `toml:"ocr"`
 	Split            ProfileSplit   `toml:"split"`
 }

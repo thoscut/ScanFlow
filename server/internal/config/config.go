@@ -124,11 +124,22 @@ type MetadataConfig struct {
 }
 
 type ProcessingConfig struct {
-	TempDirectory     string    `toml:"temp_directory"`
-	MaxConcurrentJobs int       `toml:"max_concurrent_jobs"`
-	JobTimeout        duration  `toml:"job_timeout"`
-	PDF               PDFConfig `toml:"pdf"`
-	OCR               OCRConfig `toml:"ocr"`
+	TempDirectory     string          `toml:"temp_directory"`
+	MaxConcurrentJobs int             `toml:"max_concurrent_jobs"`
+	JobTimeout        duration        `toml:"job_timeout"`
+	PDF               PDFConfig       `toml:"pdf"`
+	OCR               OCRConfig       `toml:"ocr"`
+	ImageFilters      ImageFilterConfig `toml:"image_filters"`
+}
+
+// ImageFilterConfig controls optional image filters applied during the
+// post-processing pipeline before PDF creation.
+type ImageFilterConfig struct {
+	AutoRotate         bool    `toml:"auto_rotate"`
+	ColorToGrayscale   bool    `toml:"color_to_grayscale"`
+	BrightnessAdjust   float64 `toml:"brightness_adjust"`
+	ContrastAdjust     float64 `toml:"contrast_adjust"`
+	NormalizeExposure  bool    `toml:"normalize_exposure"`
 }
 
 type PDFConfig struct {
