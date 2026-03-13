@@ -85,6 +85,7 @@ func (s *Server) setupRouter() {
 		r.Get("/api/v1/scanner/devices/{id}", s.handleGetDevice)
 		r.Post("/api/v1/scanner/devices/{id}/open", s.handleOpenDevice)
 		r.Delete("/api/v1/scanner/devices/{id}/close", s.handleCloseDevice)
+		r.Get("/api/v1/scanner/capabilities", s.handleGetCapabilities)
 
 		// Scan operations
 		r.Post("/api/v1/scan", s.handleStartScan)

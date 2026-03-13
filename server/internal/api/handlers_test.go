@@ -558,3 +558,37 @@ func TestImportProfileInvalidTOML(t *testing.T) {
 		t.Fatalf("expected status 400, got %d", w.Code)
 	}
 }
+
+func TestGetCapabilitiesEndpoint(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest("GET", "/api/v1/scanner/capabilities", nil)
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var caps scanner.Capabilities
+	if err := json.NewDecoder(w.Body).Decode(&caps); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(caps.Resolutions) == 0 {
+		t.Fatal("expected non-empty resolutions")
+	}
+	if len(caps.Modes) == 0 {
+		t.Fatal("expected non-empty modes")
+	}
+	if len(caps.Sources) == 0 {
+		t.Fatal("expected non-empty sources")
+	}
+	if caps.MaxWidth <= 0 {
+		t.Fatalf("expected positive max_width_mm, got %f", caps.MaxWidth)
+	}
+	if caps.MaxHeight <= 0 {
+		t.Fatalf("expected positive max_height_mm, got %f", caps.MaxHeight)
+	}
+}

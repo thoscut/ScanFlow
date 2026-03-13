@@ -116,6 +116,12 @@ func (s *Server) handleCloseDevice(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "closed"}, r)
 }
 
+// Scanner capabilities
+func (s *Server) handleGetCapabilities(w http.ResponseWriter, r *http.Request) {
+	caps := s.scanner.GetCapabilities()
+	writeJSON(w, http.StatusOK, caps, r)
+}
+
 // Scan operations
 func (s *Server) handleStartScan(w http.ResponseWriter, r *http.Request) {
 	var req jobs.ScanRequest
