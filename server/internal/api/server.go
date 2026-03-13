@@ -27,6 +27,7 @@ type Server struct {
 	processor   *processor.Pipeline
 	outputs     *output.Manager
 	wsHub       *WebSocketHub
+	metrics     *Metrics
 	server      *http.Server
 	acmeMgr     *acme.Manager
 	acmeHTTPSrv *http.Server // port 80 listener for ACME HTTP-01 challenges
@@ -44,6 +45,7 @@ func NewServer(cfg *config.Config, sc *scanner.Scanner, q *jobs.Queue, profiles 
 		processor:  proc,
 		outputs:    outputs,
 		wsHub:      NewWebSocketHub(),
+		metrics:    NewMetrics(),
 		jobTimeout: cfg.Processing.JobTimeout.Duration(),
 		done:       make(chan struct{}),
 	}
@@ -65,10 +67,12 @@ func (s *Server) setupRouter() {
 	r.Use(MaxBodyMiddleware)
 	r.Use(CORSMiddleware())
 	r.Use(RateLimitMiddleware(10, 20))
+	r.Use(MetricsMiddleware(s.metrics))
 
-	// Health check (no auth required)
+	// Health check and metrics (no auth required)
 	r.Get("/api/v1/health", s.handleHealth)
 	r.Get("/api/v1/ready", s.handleReady)
+	r.Get("/metrics", s.metrics.Handler())
 
 	// API routes (with auth)
 	r.Group(func(r chi.Router) {
@@ -228,12 +232,15 @@ func (s *Server) processJob(job *jobs.Job) {
 	job.SetCancel(cancel)
 	defer cancel()
 
+	s.metrics.JobStarted()
+
 	slog.Info("processing job", "job_id", job.ID, "profile", job.Profile)
 
 	// Get profile
 	profile, ok := s.profiles.Get(job.Profile)
 	if !ok {
 		job.SetError(fmt.Errorf("profile %q not found", job.Profile))
+		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
 	}
@@ -254,6 +261,7 @@ func (s *Server) processJob(job *jobs.Job) {
 	pages, err := s.scanner.ScanBatch(ctx, opts)
 	if err != nil {
 		job.SetError(fmt.Errorf("scan failed: %w", err))
+		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
 	}
@@ -264,6 +272,7 @@ func (s *Server) processJob(job *jobs.Job) {
 			continue
 		}
 		job.AddPage(page)
+		s.metrics.PageScanned()
 		job.SendProgress(jobs.ProgressUpdate{
 			Type:    "page_complete",
 			Page:    page.Number,
@@ -274,6 +283,7 @@ func (s *Server) processJob(job *jobs.Job) {
 
 	if job.PageCount() == 0 {
 		job.SetError(fmt.Errorf("no pages scanned"))
+		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
 	}
@@ -285,6 +295,7 @@ func (s *Server) processJob(job *jobs.Job) {
 	doc, err := s.processor.Process(ctx, job, profile)
 	if err != nil {
 		job.SetError(fmt.Errorf("processing failed: %w", err))
+		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
 	}
@@ -297,12 +308,14 @@ func (s *Server) processJob(job *jobs.Job) {
 
 	if err := s.outputs.Send(ctx, target, doc); err != nil {
 		job.SetError(fmt.Errorf("output failed: %w", err))
+		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
 	}
 
 	// Done
 	job.SetStatus(jobs.StatusCompleted)
+	s.metrics.JobCompleted()
 	job.SendProgress(jobs.ProgressUpdate{
 		Type:    "completed",
 		Message: "Document processed and delivered",
