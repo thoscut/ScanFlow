@@ -14,30 +14,23 @@
 - TLS certificate auto-renewal via Let's Encrypt with HTTP-01 and DNS-01 challenges
 - Built-in service installation for Linux (systemd) and Windows
 - Release artifact checksums (SHA-256) published with every release
-
-## Near Term
-
-- Improve output handler coverage and regression tests
-- Strengthen release artifacts with packaged archives for each platform
-- Improve troubleshooting guidance for scanner permissions, OCR and Paperless connectivity
 - Startup configuration validation to catch invalid settings before serving traffic
 - Scan and processing operation timeouts to prevent indefinite hangs
 - Readiness probe endpoint (`/api/v1/ready`) for container orchestration
 - Request ID propagation in logs and error responses
-
-## Mid Term
-
-- Add integration tests for output backends with mock services
-- Expose more scanner capabilities in the Web UI and CLI
-- Improve retry handling and observability for long-running uploads
-- Add profile import/export helpers for easier rollout across multiple clients
-- Implement job retention and automatic cleanup for old completed jobs
-- Audit and pin third-party dependency versions with vulnerability scanning
-- Prometheus metrics endpoint for operational monitoring
+- Output handler regression tests and integration tests with mock services
+- Troubleshooting guide for scanner permissions, OCR and Paperless connectivity
+- Packaged release archives (tar.gz and zip) for each platform
+- Scanner capabilities API endpoint for UI and CLI integration
+- Profile import and export via REST API for easier rollout across clients
+- Job retention and automatic cleanup for old completed jobs
+- Dependency auditing with govulncheck and gosec in the CI pipeline
+- Prometheus-compatible metrics endpoint for operational monitoring
 - Persistent job storage to survive server restarts
 - Graceful job queue draining during shutdown
 - Security scanning (SAST and dependency audits) in the CI pipeline
 - Docker image build and publish in the release workflow
+- Retry handling with exponential backoff for long-running uploads
 - Operations and troubleshooting runbook
 
 ## Long Term

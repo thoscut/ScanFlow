@@ -425,12 +425,31 @@ func (s *Server) handleExportProfile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "profile not found", r)
 		return
 	}
+	// Sanitize the profile name for use in the Content-Disposition header
+	// to prevent header injection via special characters.
+	safeName := sanitizeHeaderValue(name)
 	w.Header().Set("Content-Type", "application/toml")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.toml"`, name))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.toml"`, safeName))
 	if err := toml.NewEncoder(w).Encode(profile); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to encode profile", r)
 		return
 	}
+}
+
+// sanitizeHeaderValue removes characters that could cause HTTP header injection.
+func sanitizeHeaderValue(v string) string {
+	result := make([]byte, 0, len(v))
+	for i := 0; i < len(v); i++ {
+		c := v[i]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+			c == '-' || c == '_' || c == '.' {
+			result = append(result, c)
+		}
+	}
+	if len(result) == 0 {
+		return "profile"
+	}
+	return string(result)
 }
 
 // Profile import - accepts TOML body

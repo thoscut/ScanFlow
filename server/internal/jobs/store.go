@@ -81,7 +81,10 @@ func NewStore(dir string) (*Store, error) {
 }
 
 func (s *Store) path(id string) string {
-	return filepath.Join(s.dir, id+".json")
+	// Use only the base name to prevent path traversal even if the caller
+	// passes a crafted ID like "../../etc/passwd".
+	safe := filepath.Base(filepath.Clean(id))
+	return filepath.Join(s.dir, safe+".json")
 }
 
 // Save writes the job's current state to a JSON file.

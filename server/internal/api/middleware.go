@@ -116,6 +116,10 @@ type tokenBucket struct {
 	lastSeen time.Time
 }
 
+// maxRateLimitEntries caps the number of tracked IPs to prevent memory
+// exhaustion from a flood of unique addresses.
+const maxRateLimitEntries = 10000
+
 // rateLimiter holds the shared state for rate limiting across all IPs.
 type rateLimiter struct {
 	mu      sync.Mutex
@@ -142,6 +146,11 @@ func (rl *rateLimiter) allow(ip string) bool {
 	now := time.Now()
 	b, ok := rl.clients[ip]
 	if !ok {
+		// Reject new entries if the map is at capacity to prevent memory
+		// exhaustion from a large number of unique IPs.
+		if len(rl.clients) >= maxRateLimitEntries {
+			return false
+		}
 		rl.clients[ip] = &tokenBucket{
 			tokens:   float64(rl.burst) - 1,
 			lastSeen: now,
