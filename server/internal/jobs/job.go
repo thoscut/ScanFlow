@@ -35,6 +35,7 @@ type Job struct {
 	OcrEnabled *bool            `json:"ocr_enabled,omitempty"`
 	CreatedAt  time.Time        `json:"created_at"`
 	UpdatedAt  time.Time        `json:"updated_at"`
+	CompletedAt time.Time       `json:"completed_at,omitempty"`
 
 	mu       sync.RWMutex
 	cancel   context.CancelFunc
@@ -138,6 +139,9 @@ func (j *Job) SetStatus(status JobStatus) {
 	defer j.mu.Unlock()
 	j.Status = status
 	j.UpdatedAt = time.Now()
+	if status == StatusCompleted || status == StatusFailed || status == StatusCancelled {
+		j.CompletedAt = j.UpdatedAt
+	}
 }
 
 // SetError marks the job as failed with an error message.
@@ -146,7 +150,9 @@ func (j *Job) SetError(err error) {
 	defer j.mu.Unlock()
 	j.Status = StatusFailed
 	j.Error = err.Error()
-	j.UpdatedAt = time.Now()
+	now := time.Now()
+	j.UpdatedAt = now
+	j.CompletedAt = now
 }
 
 // AddPage adds a scanned page to the job.
@@ -198,7 +204,9 @@ func (j *Job) Cancel() {
 		j.cancel()
 	}
 	j.Status = StatusCancelled
-	j.UpdatedAt = time.Now()
+	now := time.Now()
+	j.UpdatedAt = now
+	j.CompletedAt = now
 }
 
 // SendProgress sends a progress update for this job.

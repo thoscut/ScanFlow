@@ -1,9 +1,11 @@
 package jobs
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 )
 
 // Queue manages scan jobs with a concurrent-safe map and processing channel.
@@ -141,5 +143,65 @@ func (q *Queue) Remove(id string) {
 			close(ch)
 		}
 		delete(q.subscribers, id)
+	}
+}
+
+// Close closes the pending channel to signal workers to stop accepting new jobs.
+func (q *Queue) Close() {
+	close(q.pending)
+}
+
+// StartCleanup runs a background goroutine that periodically removes terminal
+// jobs (completed, failed, cancelled) older than maxAge.
+func (q *Queue) StartCleanup(ctx context.Context, maxAge time.Duration) {
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				q.cleanupOldJobs(maxAge)
+			}
+		}
+	}()
+}
+
+func (q *Queue) cleanupOldJobs(maxAge time.Duration) {
+	q.mu.Lock()
+	var toRemove []string
+	now := time.Now()
+	for id, job := range q.jobs {
+		job.mu.RLock()
+		status := job.Status
+		completedAt := job.CompletedAt
+		job.mu.RUnlock()
+
+		if status == StatusCompleted || status == StatusFailed || status == StatusCancelled {
+			if !completedAt.IsZero() && now.Sub(completedAt) > maxAge {
+				toRemove = append(toRemove, id)
+			}
+		}
+	}
+	for _, id := range toRemove {
+		delete(q.jobs, id)
+	}
+	q.mu.Unlock()
+
+	// Clean up subscribers outside the main lock.
+	if len(toRemove) > 0 {
+		q.subMu.Lock()
+		for _, id := range toRemove {
+			if subs, ok := q.subscribers[id]; ok {
+				for _, ch := range subs {
+					close(ch)
+				}
+				delete(q.subscribers, id)
+			}
+		}
+		q.subMu.Unlock()
+		slog.Info("cleaned up old jobs", "count", len(toRemove))
 	}
 }

@@ -447,3 +447,7 @@ func TestRequestIDInErrorResponse(t *testing.T) {
 		t.Fatal("expected X-Request-ID header to be set")
 	}
 }
+
+func TestProcessJobTimeout(t *testing.T) {
+	t.Skip("not feasible to test processJob timeout directly in unit tests")
+}

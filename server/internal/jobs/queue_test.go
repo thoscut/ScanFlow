@@ -1,7 +1,9 @@
 package jobs
 
 import (
+	"context"
 	"testing"
+	"time"
 )
 
 func TestNewJob(t *testing.T) {
@@ -174,3 +176,45 @@ type testError struct {
 }
 
 func (e *testError) Error() string { return e.msg }
+
+func TestQueueCleanupRemovesOldJobs(t *testing.T) {
+	q := NewQueue()
+
+	job := NewJob("standard", OutputConfig{Target: "paperless"}, nil, nil)
+	if err := q.Submit(job); err != nil {
+		t.Fatalf("submit failed: %v", err)
+	}
+
+	// Mark as completed and backdate CompletedAt.
+	job.SetStatus(StatusCompleted)
+	job.mu.Lock()
+	job.CompletedAt = time.Now().Add(-2 * time.Hour)
+	job.mu.Unlock()
+
+	// Run cleanup with a 1-hour max age; the job should be removed.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	q.StartCleanup(ctx, 1*time.Hour)
+
+	// Wait for at least one cleanup tick (ticker fires every minute; we
+	// trigger one manually to avoid waiting).
+	q.cleanupOldJobs(1 * time.Hour)
+
+	if _, ok := q.Get(job.ID); ok {
+		t.Fatal("expected old completed job to be removed by cleanup")
+	}
+
+	// Submit a fresh completed job that is NOT old enough — it should survive.
+	job2 := NewJob("oversize", OutputConfig{}, nil, nil)
+	if err := q.Submit(job2); err != nil {
+		t.Fatalf("submit failed: %v", err)
+	}
+	job2.SetStatus(StatusCompleted)
+
+	q.cleanupOldJobs(1 * time.Hour)
+
+	if _, ok := q.Get(job2.ID); !ok {
+		t.Fatal("recent completed job should NOT be removed by cleanup")
+	}
+}

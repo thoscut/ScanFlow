@@ -30,18 +30,22 @@ type Server struct {
 	server      *http.Server
 	acmeMgr     *acme.Manager
 	acmeHTTPSrv *http.Server // port 80 listener for ACME HTTP-01 challenges
+	jobTimeout  time.Duration
+	done        chan struct{} // closed when jobWorker exits
 }
 
 // NewServer creates a new API server.
 func NewServer(cfg *config.Config, sc *scanner.Scanner, q *jobs.Queue, profiles *config.ProfileStore, proc *processor.Pipeline, outputs *output.Manager) *Server {
 	s := &Server{
-		cfg:       cfg,
-		scanner:   sc,
-		jobQueue:  q,
-		profiles:  profiles,
-		processor: proc,
-		outputs:   outputs,
-		wsHub:     NewWebSocketHub(),
+		cfg:        cfg,
+		scanner:    sc,
+		jobQueue:   q,
+		profiles:   profiles,
+		processor:  proc,
+		outputs:    outputs,
+		wsHub:      NewWebSocketHub(),
+		jobTimeout: cfg.Processing.JobTimeout.Duration(),
+		done:       make(chan struct{}),
 	}
 
 	s.setupRouter()
@@ -191,6 +195,18 @@ func (s *Server) startACME(ctx context.Context) error {
 // Shutdown gracefully stops the server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	slog.Info("API server shutting down")
+
+	// Stop accepting new jobs.
+	s.jobQueue.Close()
+
+	// Wait for the in-flight job worker to finish.
+	select {
+	case <-s.done:
+		slog.Info("job worker finished")
+	case <-ctx.Done():
+		slog.Warn("timed out waiting for job worker to finish")
+	}
+
 	if s.acmeHTTPSrv != nil {
 		if err := s.acmeHTTPSrv.Shutdown(ctx); err != nil {
 			slog.Warn("ACME HTTP listener shutdown error", "error", err)
@@ -201,13 +217,14 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 // jobWorker processes jobs from the queue.
 func (s *Server) jobWorker() {
+	defer close(s.done)
 	for job := range s.jobQueue.Pending() {
 		s.processJob(job)
 	}
 }
 
 func (s *Server) processJob(job *jobs.Job) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), s.jobTimeout)
 	job.SetCancel(cancel)
 	defer cancel()
 

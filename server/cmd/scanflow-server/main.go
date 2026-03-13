@@ -122,6 +122,13 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Start job cleanup goroutine
+	retentionAge := time.Duration(cfg.Storage.RetentionDays) * 24 * time.Hour
+	if retentionAge < 1*time.Hour {
+		retentionAge = 1 * time.Hour
+	}
+	jobQueue.StartCleanup(ctx, retentionAge)
+
 	// Setup button watcher if enabled
 	if cfg.Button.Enabled {
 		btnCfg := scanner.ButtonConfig{

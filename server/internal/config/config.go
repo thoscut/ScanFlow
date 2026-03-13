@@ -126,6 +126,7 @@ type MetadataConfig struct {
 type ProcessingConfig struct {
 	TempDirectory     string    `toml:"temp_directory"`
 	MaxConcurrentJobs int       `toml:"max_concurrent_jobs"`
+	JobTimeout        duration  `toml:"job_timeout"`
 	PDF               PDFConfig `toml:"pdf"`
 	OCR               OCRConfig `toml:"ocr"`
 }
@@ -351,6 +352,7 @@ func DefaultConfig() *Config {
 		Processing: ProcessingConfig{
 			TempDirectory:     tempDir,
 			MaxConcurrentJobs: 2,
+			JobTimeout:        duration(10 * time.Minute),
 			PDF: PDFConfig{
 				Format:      "PDF/A-2b",
 				Compression: "jpeg",
