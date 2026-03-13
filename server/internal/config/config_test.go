@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -221,5 +222,57 @@ mode = "lineart"
 	}
 	if p.Scanner.Resolution != 150 {
 		t.Fatalf("expected resolution 150, got %d", p.Scanner.Resolution)
+	}
+}
+
+func TestValidateDefaultConfig(t *testing.T) {
+	cfg := DefaultConfig()
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("default config should be valid, got: %v", err)
+	}
+}
+
+func TestValidateInvalidPort(t *testing.T) {
+	for _, port := range []int{0, 70000} {
+		cfg := DefaultConfig()
+		cfg.Server.Port = port
+		err := cfg.Validate()
+		if err == nil {
+			t.Fatalf("expected error for port %d", port)
+		}
+		if !strings.Contains(err.Error(), "server.port") {
+			t.Fatalf("error should mention server.port, got: %v", err)
+		}
+	}
+}
+
+func TestValidateInvalidOCRLang(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Processing.OCR.Enabled = true
+	cfg.Processing.OCR.Language = "eng;rm -rf"
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for invalid OCR language")
+	}
+	if !strings.Contains(err.Error(), "processing.ocr.language") {
+		t.Fatalf("error should mention processing.ocr.language, got: %v", err)
+	}
+}
+
+func TestValidateInvalidTLS(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Server.TLS.Enabled = true
+	cfg.Server.TLS.ACME.Enabled = false
+	cfg.Server.TLS.CertFile = ""
+	cfg.Server.TLS.KeyFile = ""
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for TLS without cert/key")
+	}
+	if !strings.Contains(err.Error(), "cert_file") {
+		t.Fatalf("error should mention cert_file, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "key_file") {
+		t.Fatalf("error should mention key_file, got: %v", err)
 	}
 }

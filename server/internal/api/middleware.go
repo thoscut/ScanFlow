@@ -197,9 +197,6 @@ func clientIP(r *http.Request) string {
 // RateLimitMiddleware limits requests per client IP using an in-memory token
 // bucket. requestsPerSecond controls the refill rate and burst sets the maximum
 // number of tokens (requests) that can be consumed in a burst.
-// RateLimitMiddleware limits requests per client IP using an in-memory token
-// bucket. requestsPerSecond controls the refill rate and burst sets the maximum
-// number of tokens (requests) that can be consumed in a burst.
 func RateLimitMiddleware(requestsPerSecond float64, burst int) func(http.Handler) http.Handler {
 	// Use a background context; the cleanup goroutine runs for the lifetime
 	// of the process (the middleware is created once at startup).

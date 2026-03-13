@@ -1,14 +1,19 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
+
+// ocrLangPattern validates OCR language strings like "deu", "deu+eng", "chi_sim+eng".
+var ocrLangPattern = regexp.MustCompile(`^[a-zA-Z0-9_]+(\+[a-zA-Z0-9_]+)*$`)
 
 // Config holds the complete server configuration.
 type Config struct {
@@ -212,6 +217,78 @@ func (d duration) MarshalText() ([]byte, error) {
 	return []byte(time.Duration(d).String()), nil
 }
 
+// Validate checks the configuration for invalid or missing values and returns
+// all detected problems joined into a single error so the operator sees every
+// issue at once.
+func (c *Config) Validate() error {
+	var errs []error
+
+	// Server.Port
+	if c.Server.Port < 1 || c.Server.Port > 65535 {
+		errs = append(errs, fmt.Errorf("server.port must be between 1 and 65535, got %d", c.Server.Port))
+	}
+
+	// Processing.TempDirectory
+	if strings.TrimSpace(c.Processing.TempDirectory) == "" {
+		errs = append(errs, fmt.Errorf("processing.temp_directory must not be empty"))
+	}
+
+	// Processing.MaxConcurrentJobs
+	if c.Processing.MaxConcurrentJobs < 1 {
+		errs = append(errs, fmt.Errorf("processing.max_concurrent_jobs must be >= 1, got %d", c.Processing.MaxConcurrentJobs))
+	}
+
+	// Processing.PDF.JPEGQuality
+	if c.Processing.PDF.JPEGQuality < 1 || c.Processing.PDF.JPEGQuality > 100 {
+		errs = append(errs, fmt.Errorf("processing.pdf.jpeg_quality must be between 1 and 100, got %d", c.Processing.PDF.JPEGQuality))
+	}
+
+	// Processing.OCR.Language (only when OCR is enabled)
+	if c.Processing.OCR.Enabled && c.Processing.OCR.Language != "" {
+		if !ocrLangPattern.MatchString(c.Processing.OCR.Language) {
+			errs = append(errs, fmt.Errorf("processing.ocr.language contains invalid characters: %q", c.Processing.OCR.Language))
+		}
+	}
+
+	// TLS without ACME requires cert and key files
+	if c.Server.TLS.Enabled && !c.Server.TLS.ACME.Enabled {
+		if strings.TrimSpace(c.Server.TLS.CertFile) == "" {
+			errs = append(errs, fmt.Errorf("server.tls.cert_file must not be empty when TLS is enabled without ACME"))
+		}
+		if strings.TrimSpace(c.Server.TLS.KeyFile) == "" {
+			errs = append(errs, fmt.Errorf("server.tls.key_file must not be empty when TLS is enabled without ACME"))
+		}
+	}
+
+	// ACME requires at least one domain and a non-empty email
+	if c.Server.TLS.ACME.Enabled {
+		if len(c.Server.TLS.ACME.Domains) == 0 {
+			errs = append(errs, fmt.Errorf("server.tls.acme.domains must contain at least one domain when ACME is enabled"))
+		}
+		if strings.TrimSpace(c.Server.TLS.ACME.Email) == "" {
+			errs = append(errs, fmt.Errorf("server.tls.acme.email must not be empty when ACME is enabled"))
+		}
+	}
+
+	// Logging.Level
+	switch c.Logging.Level {
+	case "debug", "info", "warn", "error":
+		// valid
+	default:
+		errs = append(errs, fmt.Errorf("logging.level must be one of debug, info, warn, error; got %q", c.Logging.Level))
+	}
+
+	// Logging.Format
+	switch c.Logging.Format {
+	case "json", "text":
+		// valid
+	default:
+		errs = append(errs, fmt.Errorf("logging.format must be one of json, text; got %q", c.Logging.Format))
+	}
+
+	return errors.Join(errs...)
+}
+
 // Load reads and parses the server configuration from a TOML file.
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
@@ -226,6 +303,10 @@ func Load(path string) (*Config, error) {
 
 	if err := cfg.loadSecrets(); err != nil {
 		return nil, fmt.Errorf("load secrets: %w", err)
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("validate config: %w", err)
 	}
 
 	return cfg, nil
