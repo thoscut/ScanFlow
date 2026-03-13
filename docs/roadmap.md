@@ -10,15 +10,20 @@
 - OCR language input validation to block command injection via Tesseract arguments
 - Authentication failure logging for security monitoring
 - Configurable CORS origins (backward-compatible wildcard default)
+- TLS certificate auto-renewal via Let's Encrypt with HTTP-01 and DNS-01 challenges
+- Built-in service installation for Linux (systemd) and Windows
+- Release artifact checksums (SHA-256) published with every release
 
 ## Near Term
 
 - Improve output handler coverage and regression tests
-- Strengthen release artifacts with packaged archives and checksum publication
-- Expand deployment ergonomics for the server, including built-in service installation
+- Strengthen release artifacts with packaged archives for each platform
 - Improve troubleshooting guidance for scanner permissions, OCR and Paperless connectivity
 - Add rate limiting middleware to protect against brute-force API key guessing
-- TLS certificate auto-renewal helpers (Let's Encrypt / ACME)
+- Startup configuration validation to catch invalid settings before serving traffic
+- Scan and processing operation timeouts to prevent indefinite hangs
+- Readiness probe endpoint (`/api/v1/ready`) for container orchestration
+- Request ID propagation in logs and error responses
 
 ## Mid Term
 
@@ -26,8 +31,14 @@
 - Expose more scanner capabilities in the Web UI and CLI
 - Improve retry handling and observability for long-running uploads
 - Add profile import/export helpers for easier rollout across multiple clients
-- Implement job retention / automatic cleanup for old completed jobs
+- Implement job retention and automatic cleanup for old completed jobs
 - Audit and pin third-party dependency versions with vulnerability scanning
+- Prometheus metrics endpoint for operational monitoring
+- Persistent job storage to survive server restarts
+- Graceful job queue draining during shutdown
+- Security scanning (SAST and dependency audits) in the CI pipeline
+- Docker image build and publish in the release workflow
+- Operations and troubleshooting runbook
 
 ## Long Term
 
@@ -37,3 +48,7 @@
 - Optional signed release artifacts and SBOM generation
 - Role-based access control for multi-user environments
 - Encrypted at-rest storage for scanned documents
+- Backup and disaster recovery tooling
+- Upgrade and migration path documentation
+- Performance tuning guide for high-throughput environments
+- Horizontal scaling and high-availability support
