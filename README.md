@@ -23,6 +23,10 @@ Client-Server-System for network document scanning with Paperless-NGX integratio
 - **REST API** - Full API for custom integrations
 - **Cross-platform Client** - Builds for Linux, macOS, and Windows
 
+## Web UI
+
+![ScanFlow Web UI](docs/screenshots/web-ui.png)
+
 ## Quick Start
 
 ### Prerequisites

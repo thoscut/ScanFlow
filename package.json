@@ -1,0 +1,27 @@
+{
+  "name": "scanflow",
+  "version": "1.0.0",
+  "description": "Client-Server-System for network document scanning with Paperless-NGX integration. The server runs on Linux (Raspberry Pi) with SANE, clients are cross-platform (Windows/macOS/Linux).",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thoscut/ScanFlow.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/thoscut/ScanFlow/issues"
+  },
+  "homepage": "https://github.com/thoscut/ScanFlow#readme",
+  "devDependencies": {
+    "playwright": "^1.58.2"
+  }
+}

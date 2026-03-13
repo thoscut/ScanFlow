@@ -9,6 +9,7 @@ site/
 
 # Dependencies
 vendor/
+node_modules/
 
 # IDE
 .idea/

@@ -23,6 +23,24 @@ Client-Server system for network document scanning with Paperless-NGX integratio
 - **REST API** - Full API for custom integrations
 - **Cross-platform Client** - Builds for Linux, macOS, and Windows
 
+## Web UI
+
+ScanFlow includes a browser-based interface for controlling scans, managing jobs, and adjusting settings.
+
+![ScanFlow Web UI](screenshots/web-ui.png)
+
+### Start a New Scan
+
+Select a profile, output target, and optional title, then hit **Start Scan**.
+
+![New Scan](screenshots/web-ui-scan.png)
+
+### Monitor Jobs
+
+Running and completed jobs are shown with real-time progress via WebSocket updates.
+
+![Jobs](screenshots/web-ui-jobs.png)
+
 ## Quick Start
 
 ### Prerequisites
