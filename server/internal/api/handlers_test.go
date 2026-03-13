@@ -451,3 +451,110 @@ func TestRequestIDInErrorResponse(t *testing.T) {
 func TestProcessJobTimeout(t *testing.T) {
 	t.Skip("not feasible to test processJob timeout directly in unit tests")
 }
+
+func TestExportProfileEndpoint(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/profiles/standard/export", nil)
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	ct := w.Header().Get("Content-Type")
+	if ct != "application/toml" {
+		t.Fatalf("expected Content-Type application/toml, got %s", ct)
+	}
+
+	cd := w.Header().Get("Content-Disposition")
+	if cd != `attachment; filename="standard.toml"` {
+		t.Fatalf("unexpected Content-Disposition: %s", cd)
+	}
+
+	if w.Body.Len() == 0 {
+		t.Fatal("expected non-empty TOML body")
+	}
+}
+
+func TestExportProfileNotFound(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/profiles/nonexistent/export", nil)
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", w.Code)
+	}
+}
+
+func TestImportProfileEndpoint(t *testing.T) {
+	srv := newTestServer(t)
+
+	tomlBody := `[profile]
+name = "imported"
+description = "An imported profile"
+
+[scanner]
+resolution = 150
+mode = "gray"
+source = "flatbed"
+`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/profiles/import",
+		bytes.NewBufferString(tomlBody))
+	req.Header.Set("Content-Type", "application/toml")
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify profile is stored
+	p, ok := srv.profiles.Get("imported")
+	if !ok {
+		t.Fatal("imported profile not found in store")
+	}
+	if p.Profile.Name != "imported" {
+		t.Fatalf("expected profile name 'imported', got %q", p.Profile.Name)
+	}
+	if p.Scanner.Resolution != 150 {
+		t.Fatalf("expected resolution 150, got %d", p.Scanner.Resolution)
+	}
+}
+
+func TestImportProfileMissingName(t *testing.T) {
+	srv := newTestServer(t)
+
+	tomlBody := `[scanner]
+resolution = 150
+`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/profiles/import",
+		bytes.NewBufferString(tomlBody))
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", w.Code)
+	}
+}
+
+func TestImportProfileInvalidTOML(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/profiles/import",
+		bytes.NewBufferString(`not valid {{{ toml`))
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", w.Code)
+	}
+}

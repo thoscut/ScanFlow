@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	toml "github.com/pelletier/go-toml/v2"
 	"github.com/thoscut/scanflow/server/internal/config"
 	"github.com/thoscut/scanflow/server/internal/jobs"
 )
@@ -407,4 +409,38 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		OcrEnabled:  s.cfg.Processing.OCR.Enabled,
 		OcrLanguage: s.cfg.Processing.OCR.Language,
 	}, r)
+}
+
+// Profile export - returns profile as downloadable TOML
+func (s *Server) handleExportProfile(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	profile, ok := s.profiles.Get(name)
+	if !ok {
+		writeError(w, http.StatusNotFound, "profile not found", r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/toml")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.toml"`, name))
+	if err := toml.NewEncoder(w).Encode(profile); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to encode profile", r)
+		return
+	}
+}
+
+// Profile import - accepts TOML body
+func (s *Server) handleImportProfile(w http.ResponseWriter, r *http.Request) {
+	var profile config.Profile
+	if err := toml.NewDecoder(r.Body).Decode(&profile); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid TOML: "+err.Error(), r)
+		return
+	}
+
+	name := profile.Profile.Name
+	if name == "" {
+		writeError(w, http.StatusBadRequest, "profile name is required", r)
+		return
+	}
+
+	s.profiles.Set(name, &profile)
+	writeJSON(w, http.StatusCreated, profile, r)
 }

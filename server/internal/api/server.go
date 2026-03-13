@@ -109,6 +109,10 @@ func (s *Server) setupRouter() {
 		r.Post("/api/v1/profiles", s.handleCreateProfile)
 		r.Put("/api/v1/profiles/{name}", s.handleUpdateProfile)
 
+		// Profile import/export
+		r.Get("/api/v1/profiles/{name}/export", s.handleExportProfile)
+		r.Post("/api/v1/profiles/import", s.handleImportProfile)
+
 		// System
 		r.Get("/api/v1/status", s.handleStatus)
 		r.Get("/api/v1/settings", s.handleGetSettings)
