@@ -3,6 +3,13 @@
 const API_BASE = window.location.origin;
 let ws = null;
 
+// Escape HTML to prevent XSS
+function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     checkStatus();
@@ -62,8 +69,8 @@ async function loadDevices() {
         container.innerHTML = data.devices.map(d => `
             <div class="device-card">
                 <div>
-                    <div class="device-name">${d.vendor} ${d.model}</div>
-                    <div class="device-model">${d.name}</div>
+                    <div class="device-name">${escapeHTML(d.vendor)} ${escapeHTML(d.model)}</div>
+                    <div class="device-model">${escapeHTML(d.name)}</div>
                 </div>
             </div>
         `).join('');
@@ -78,7 +85,7 @@ async function loadProfiles() {
         const data = await apiRequest('GET', '/api/v1/profiles');
         const select = document.getElementById('profile-select');
         select.innerHTML = data.profiles.map(p => `
-            <option value="${p.profile.name}">${p.profile.name} - ${p.profile.description}</option>
+            <option value="${escapeHTML(p.profile.name)}">${escapeHTML(p.profile.name)} - ${escapeHTML(p.profile.description)}</option>
         `).join('');
     } catch (err) {
         console.error('Failed to load profiles:', err);
@@ -160,12 +167,12 @@ function addJobCard(job) {
     card.id = 'job-' + job.id;
     card.innerHTML = `
         <div class="job-header">
-            <span class="job-id">${job.id.substring(0, 8)}</span>
-            <span class="job-status ${job.status}">${job.status}</span>
+            <span class="job-id">${escapeHTML(job.id.substring(0, 8))}</span>
+            <span class="job-status ${escapeHTML(job.status)}">${escapeHTML(job.status)}</span>
         </div>
-        <div>Profil: ${job.profile} | Seiten: ${job.pages ? job.pages.length : 0}</div>
+        <div>Profile: ${escapeHTML(job.profile)} | Pages: ${job.pages ? job.pages.length : 0}</div>
         <div class="progress-bar" style="margin-top: 8px;">
-            <div class="fill" style="width: ${job.progress || 0}%"></div>
+            <div class="fill" style="width: ${parseInt(job.progress) || 0}%"></div>
         </div>
     `;
 
