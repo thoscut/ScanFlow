@@ -27,21 +27,27 @@ type Server struct {
 	processor   *processor.Pipeline
 	outputs     *output.Manager
 	wsHub       *WebSocketHub
+	metrics     *Metrics
 	server      *http.Server
 	acmeMgr     *acme.Manager
 	acmeHTTPSrv *http.Server // port 80 listener for ACME HTTP-01 challenges
+	jobTimeout  time.Duration
+	done        chan struct{} // closed when jobWorker exits
 }
 
 // NewServer creates a new API server.
 func NewServer(cfg *config.Config, sc *scanner.Scanner, q *jobs.Queue, profiles *config.ProfileStore, proc *processor.Pipeline, outputs *output.Manager) *Server {
 	s := &Server{
-		cfg:       cfg,
-		scanner:   sc,
-		jobQueue:  q,
-		profiles:  profiles,
-		processor: proc,
-		outputs:   outputs,
-		wsHub:     NewWebSocketHub(),
+		cfg:        cfg,
+		scanner:    sc,
+		jobQueue:   q,
+		profiles:   profiles,
+		processor:  proc,
+		outputs:    outputs,
+		wsHub:      NewWebSocketHub(),
+		metrics:    NewMetrics(),
+		jobTimeout: cfg.Processing.JobTimeout.Duration(),
+		done:       make(chan struct{}),
 	}
 
 	s.setupRouter()
@@ -60,9 +66,13 @@ func (s *Server) setupRouter() {
 	r.Use(SecurityHeadersMiddleware)
 	r.Use(MaxBodyMiddleware)
 	r.Use(CORSMiddleware())
+	r.Use(RateLimitMiddleware(10, 20))
+	r.Use(MetricsMiddleware(s.metrics))
 
-	// Health check (no auth required)
+	// Health check and metrics (no auth required)
 	r.Get("/api/v1/health", s.handleHealth)
+	r.Get("/api/v1/ready", s.handleReady)
+	r.Get("/metrics", s.metrics.Handler())
 
 	// API routes (with auth)
 	r.Group(func(r chi.Router) {
@@ -75,6 +85,7 @@ func (s *Server) setupRouter() {
 		r.Get("/api/v1/scanner/devices/{id}", s.handleGetDevice)
 		r.Post("/api/v1/scanner/devices/{id}/open", s.handleOpenDevice)
 		r.Delete("/api/v1/scanner/devices/{id}/close", s.handleCloseDevice)
+		r.Get("/api/v1/scanner/capabilities", s.handleGetCapabilities)
 
 		// Scan operations
 		r.Post("/api/v1/scan", s.handleStartScan)
@@ -98,6 +109,10 @@ func (s *Server) setupRouter() {
 		r.Get("/api/v1/profiles/{name}", s.handleGetProfile)
 		r.Post("/api/v1/profiles", s.handleCreateProfile)
 		r.Put("/api/v1/profiles/{name}", s.handleUpdateProfile)
+
+		// Profile import/export
+		r.Get("/api/v1/profiles/{name}/export", s.handleExportProfile)
+		r.Post("/api/v1/profiles/import", s.handleImportProfile)
 
 		// System
 		r.Get("/api/v1/status", s.handleStatus)
@@ -189,6 +204,18 @@ func (s *Server) startACME(ctx context.Context) error {
 // Shutdown gracefully stops the server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	slog.Info("API server shutting down")
+
+	// Stop accepting new jobs.
+	s.jobQueue.Close()
+
+	// Wait for the in-flight job worker to finish.
+	select {
+	case <-s.done:
+		slog.Info("job worker finished")
+	case <-ctx.Done():
+		slog.Warn("timed out waiting for job worker to finish")
+	}
+
 	if s.acmeHTTPSrv != nil {
 		if err := s.acmeHTTPSrv.Shutdown(ctx); err != nil {
 			slog.Warn("ACME HTTP listener shutdown error", "error", err)
@@ -199,15 +226,18 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 // jobWorker processes jobs from the queue.
 func (s *Server) jobWorker() {
+	defer close(s.done)
 	for job := range s.jobQueue.Pending() {
 		s.processJob(job)
 	}
 }
 
 func (s *Server) processJob(job *jobs.Job) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), s.jobTimeout)
 	job.SetCancel(cancel)
 	defer cancel()
+
+	s.metrics.JobStarted()
 
 	slog.Info("processing job", "job_id", job.ID, "profile", job.Profile)
 
@@ -215,12 +245,15 @@ func (s *Server) processJob(job *jobs.Job) {
 	profile, ok := s.profiles.Get(job.Profile)
 	if !ok {
 		job.SetError(fmt.Errorf("profile %q not found", job.Profile))
+		s.jobQueue.SaveJob(job.ID)
+		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
 	}
 
 	// Set scanning status
 	job.SetStatus(jobs.StatusScanning)
+	s.jobQueue.SaveJob(job.ID)
 	s.broadcastJobUpdate(job)
 
 	// Perform scan
@@ -235,6 +268,8 @@ func (s *Server) processJob(job *jobs.Job) {
 	pages, err := s.scanner.ScanBatch(ctx, opts)
 	if err != nil {
 		job.SetError(fmt.Errorf("scan failed: %w", err))
+		s.jobQueue.SaveJob(job.ID)
+		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
 	}
@@ -245,6 +280,7 @@ func (s *Server) processJob(job *jobs.Job) {
 			continue
 		}
 		job.AddPage(page)
+		s.metrics.PageScanned()
 		job.SendProgress(jobs.ProgressUpdate{
 			Type:    "page_complete",
 			Page:    page.Number,
@@ -255,17 +291,22 @@ func (s *Server) processJob(job *jobs.Job) {
 
 	if job.PageCount() == 0 {
 		job.SetError(fmt.Errorf("no pages scanned"))
+		s.jobQueue.SaveJob(job.ID)
+		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
 	}
 
 	// Process pages
 	job.SetStatus(jobs.StatusProcessing)
+	s.jobQueue.SaveJob(job.ID)
 	s.broadcastJobUpdate(job)
 
 	doc, err := s.processor.Process(ctx, job, profile)
 	if err != nil {
 		job.SetError(fmt.Errorf("processing failed: %w", err))
+		s.jobQueue.SaveJob(job.ID)
+		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
 	}
@@ -278,12 +319,16 @@ func (s *Server) processJob(job *jobs.Job) {
 
 	if err := s.outputs.Send(ctx, target, doc); err != nil {
 		job.SetError(fmt.Errorf("output failed: %w", err))
+		s.jobQueue.SaveJob(job.ID)
+		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
 	}
 
 	// Done
 	job.SetStatus(jobs.StatusCompleted)
+	s.jobQueue.SaveJob(job.ID)
+	s.metrics.JobCompleted()
 	job.SendProgress(jobs.ProgressUpdate{
 		Type:    "completed",
 		Message: "Document processed and delivered",

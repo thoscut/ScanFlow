@@ -14,21 +14,23 @@ import (
 
 // Pipeline orchestrates image processing, PDF creation, and OCR.
 type Pipeline struct {
-	tempDir     string
-	ocrEnabled  bool
-	ocrLanguage string
-	ocrPath     string
-	pdfConfig   config.PDFConfig
+	tempDir      string
+	ocrEnabled   bool
+	ocrLanguage  string
+	ocrPath      string
+	pdfConfig    config.PDFConfig
+	imageFilters config.ImageFilterConfig
 }
 
 // NewPipeline creates a new processing pipeline.
 func NewPipeline(cfg config.ProcessingConfig) *Pipeline {
 	return &Pipeline{
-		tempDir:     cfg.TempDirectory,
-		ocrEnabled:  cfg.OCR.Enabled,
-		ocrLanguage: cfg.OCR.Language,
-		ocrPath:     cfg.OCR.TesseractPath,
-		pdfConfig:   cfg.PDF,
+		tempDir:      cfg.TempDirectory,
+		ocrEnabled:   cfg.OCR.Enabled,
+		ocrLanguage:  cfg.OCR.Language,
+		ocrPath:      cfg.OCR.TesseractPath,
+		pdfConfig:    cfg.PDF,
+		imageFilters: cfg.ImageFilters,
 	}
 }
 
@@ -88,6 +90,12 @@ func (p *Pipeline) Process(ctx context.Context, job *jobs.Job, profile *config.P
 
 	if len(imagePaths) == 0 {
 		return nil, fmt.Errorf("no pages remaining after processing")
+	}
+
+	// Step 2b: Apply image filters (brightness, contrast, grayscale, etc.)
+	imagePaths, err = applyImageFilters(imagePaths, p.imageFilters, profile.Processing)
+	if err != nil {
+		slog.Warn("image filter application failed", "error", err)
 	}
 
 	// Step 3: Create PDF

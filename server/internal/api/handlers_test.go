@@ -398,3 +398,197 @@ func TestUpdateSettingsRejectsInvalidOCRLang(t *testing.T) {
 		t.Fatalf("expected 400 for invalid OCR language, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+func TestReadyEndpoint(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest("GET", "/api/v1/ready", nil)
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var resp map[string]string
+	json.NewDecoder(w.Body).Decode(&resp)
+
+	if resp["status"] != "ready" {
+		t.Fatalf("expected status 'ready', got %s", resp["status"])
+	}
+}
+
+func TestRequestIDInErrorResponse(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest("GET", "/api/v1/scan/nonexistent-id", nil)
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", w.Code)
+	}
+
+	var resp map[string]string
+	json.NewDecoder(w.Body).Decode(&resp)
+
+	if resp["request_id"] == "" {
+		t.Fatal("expected non-empty request_id in error response")
+	}
+
+	if resp["error"] != "job not found" {
+		t.Fatalf("expected error 'job not found', got %s", resp["error"])
+	}
+
+	// Verify X-Request-ID header is also set
+	if w.Header().Get("X-Request-ID") == "" {
+		t.Fatal("expected X-Request-ID header to be set")
+	}
+}
+
+func TestProcessJobTimeout(t *testing.T) {
+	t.Skip("not feasible to test processJob timeout directly in unit tests")
+}
+
+func TestExportProfileEndpoint(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/profiles/standard/export", nil)
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	ct := w.Header().Get("Content-Type")
+	if ct != "application/toml" {
+		t.Fatalf("expected Content-Type application/toml, got %s", ct)
+	}
+
+	cd := w.Header().Get("Content-Disposition")
+	if cd != `attachment; filename="standard.toml"` {
+		t.Fatalf("unexpected Content-Disposition: %s", cd)
+	}
+
+	if w.Body.Len() == 0 {
+		t.Fatal("expected non-empty TOML body")
+	}
+}
+
+func TestExportProfileNotFound(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/profiles/nonexistent/export", nil)
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", w.Code)
+	}
+}
+
+func TestImportProfileEndpoint(t *testing.T) {
+	srv := newTestServer(t)
+
+	tomlBody := `[profile]
+name = "imported"
+description = "An imported profile"
+
+[scanner]
+resolution = 150
+mode = "gray"
+source = "flatbed"
+`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/profiles/import",
+		bytes.NewBufferString(tomlBody))
+	req.Header.Set("Content-Type", "application/toml")
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify profile is stored
+	p, ok := srv.profiles.Get("imported")
+	if !ok {
+		t.Fatal("imported profile not found in store")
+	}
+	if p.Profile.Name != "imported" {
+		t.Fatalf("expected profile name 'imported', got %q", p.Profile.Name)
+	}
+	if p.Scanner.Resolution != 150 {
+		t.Fatalf("expected resolution 150, got %d", p.Scanner.Resolution)
+	}
+}
+
+func TestImportProfileMissingName(t *testing.T) {
+	srv := newTestServer(t)
+
+	tomlBody := `[scanner]
+resolution = 150
+`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/profiles/import",
+		bytes.NewBufferString(tomlBody))
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", w.Code)
+	}
+}
+
+func TestImportProfileInvalidTOML(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/profiles/import",
+		bytes.NewBufferString(`not valid {{{ toml`))
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", w.Code)
+	}
+}
+
+func TestGetCapabilitiesEndpoint(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest("GET", "/api/v1/scanner/capabilities", nil)
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var caps scanner.Capabilities
+	if err := json.NewDecoder(w.Body).Decode(&caps); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(caps.Resolutions) == 0 {
+		t.Fatal("expected non-empty resolutions")
+	}
+	if len(caps.Modes) == 0 {
+		t.Fatal("expected non-empty modes")
+	}
+	if len(caps.Sources) == 0 {
+		t.Fatal("expected non-empty sources")
+	}
+	if caps.MaxWidth <= 0 {
+		t.Fatalf("expected positive max_width_mm, got %f", caps.MaxWidth)
+	}
+	if caps.MaxHeight <= 0 {
+		t.Fatalf("expected positive max_height_mm, got %f", caps.MaxHeight)
+	}
+}

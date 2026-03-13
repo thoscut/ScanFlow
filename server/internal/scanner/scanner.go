@@ -35,6 +35,19 @@ type ScanOptions struct {
 	Contrast   int
 }
 
+// Capabilities describes what a scanner device supports.
+type Capabilities struct {
+	Resolutions []int    `json:"resolutions"`
+	Modes       []string `json:"modes"`
+	Sources     []string `json:"sources"`
+	MaxWidth    float64  `json:"max_width_mm"`
+	MaxHeight   float64  `json:"max_height_mm"`
+	HasADF      bool     `json:"has_adf"`
+	HasDuplex   bool     `json:"has_duplex"`
+	HasFlatbed  bool     `json:"has_flatbed"`
+	HasButton   bool     `json:"has_button"`
+}
+
 // Scanner manages scanner hardware access via SANE.
 type Scanner struct {
 	deviceName string
@@ -294,6 +307,22 @@ func (s *Scanner) GetButtonState(buttonName string) (bool, error) {
 		return b, nil
 	}
 	return false, nil
+}
+
+// GetCapabilities returns the capabilities of the scanner hardware.
+// Currently returns sensible defaults; a real implementation would query the SANE backend.
+func (s *Scanner) GetCapabilities() Capabilities {
+	return Capabilities{
+		Resolutions: []int{75, 100, 150, 200, 300, 600},
+		Modes:       []string{"color", "gray", "lineart"},
+		Sources:     []string{"flatbed", "adf", "adf_duplex"},
+		MaxWidth:    215.9,
+		MaxHeight:   355.6,
+		HasADF:      true,
+		HasDuplex:   true,
+		HasFlatbed:  true,
+		HasButton:   true,
+	}
 }
 
 // Shutdown cleans up scanner resources.

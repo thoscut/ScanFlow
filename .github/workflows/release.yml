@@ -29,6 +29,41 @@ jobs:
         working-directory: client
         run: go test -race ./...
 
+  docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/scanflow-server:${{ steps.version.outputs.VERSION }}
+            ghcr.io/${{ github.repository_owner }}/scanflow-server:latest
+          platforms: linux/amd64,linux/arm64
+
   build:
     name: Build Binaries
     runs-on: ubuntu-latest
@@ -104,11 +139,22 @@ jobs:
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         run: ./dist/${{ matrix.binary }} --version
 
+      - name: Generate SBOM
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          go version -m dist/${{ matrix.binary }} | awk '
+            BEGIN { printf "{\"bomFormat\":\"CycloneDX\",\"specVersion\":\"1.5\",\"version\":1,\"components\":[" }
+            /dep/ { if(n++) printf ","; printf "{\"type\":\"library\",\"name\":\"%s\",\"version\":\"%s\"}", $3, $4 }
+            END { print "]}" }
+          ' > dist/${{ matrix.binary }}.sbom.cdx.json
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.binary }}
-          path: dist/${{ matrix.binary }}
+          path: |
+            dist/${{ matrix.binary }}
+            dist/${{ matrix.binary }}.sbom.cdx.json
 
   build-docs:
     name: Build Documentation
@@ -161,12 +207,17 @@ jobs:
                 *.exe)
                   zip -j "packages/${file}.zip" "$file"
                   ;;
+                *.sbom.cdx.json)
+                  cp "$file" "packages/"
+                  ;;
                 *)
                   tar -czf "packages/${file}.tar.gz" "$file"
                   ;;
               esac
             fi
           done
+          # Copy any SBOM files
+          cp -f *.sbom.cdx.json packages/ 2>/dev/null || true
           cp scanflow-docs.tar.gz packages/
           sha256sum packages/* > checksums.txt
 

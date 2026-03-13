@@ -1,9 +1,11 @@
 package jobs
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 )
 
 // Queue manages scan jobs with a concurrent-safe map and processing channel.
@@ -11,18 +13,42 @@ type Queue struct {
 	jobs    map[string]*Job
 	pending chan *Job
 	mu      sync.RWMutex
+	store   *Store
 
 	subscribers map[string][]chan ProgressUpdate
 	subMu       sync.RWMutex
 }
 
-// NewQueue creates a new job queue.
+// NewQueue creates a new job queue without persistence.
 func NewQueue() *Queue {
 	return &Queue{
 		jobs:        make(map[string]*Job),
 		pending:     make(chan *Job, 100),
 		subscribers: make(map[string][]chan ProgressUpdate),
 	}
+}
+
+// NewQueueWithStore creates a job queue backed by persistent storage.
+// Previously persisted jobs are loaded into the in-memory map.
+func NewQueueWithStore(store *Store) (*Queue, error) {
+	q := &Queue{
+		jobs:        make(map[string]*Job),
+		pending:     make(chan *Job, 100),
+		subscribers: make(map[string][]chan ProgressUpdate),
+		store:       store,
+	}
+
+	persisted, err := store.LoadAll()
+	if err != nil {
+		return nil, fmt.Errorf("load persisted jobs: %w", err)
+	}
+	for _, job := range persisted {
+		q.jobs[job.ID] = job
+	}
+	if len(persisted) > 0 {
+		slog.Info("loaded persisted jobs", "count", len(persisted))
+	}
+	return q, nil
 }
 
 // Submit adds a new job to the queue.
@@ -36,6 +62,8 @@ func (q *Queue) Submit(job *Job) error {
 
 	q.jobs[job.ID] = job
 	slog.Info("job submitted", "job_id", job.ID, "profile", job.Profile)
+
+	q.persistSave(job)
 
 	// Forward progress updates to subscribers
 	go q.forwardProgress(job)
@@ -84,6 +112,7 @@ func (q *Queue) Cancel(id string) error {
 	}
 
 	job.Cancel()
+	q.persistSave(job)
 	slog.Info("job cancelled", "job_id", id)
 	return nil
 }
@@ -134,6 +163,8 @@ func (q *Queue) Remove(id string) {
 	defer q.mu.Unlock()
 	delete(q.jobs, id)
 
+	q.persistRemove(id)
+
 	q.subMu.Lock()
 	defer q.subMu.Unlock()
 	if subs, ok := q.subscribers[id]; ok {
@@ -141,5 +172,98 @@ func (q *Queue) Remove(id string) {
 			close(ch)
 		}
 		delete(q.subscribers, id)
+	}
+}
+
+// Close closes the pending channel to signal workers to stop accepting new jobs.
+func (q *Queue) Close() {
+	close(q.pending)
+}
+
+// StartCleanup runs a background goroutine that periodically removes terminal
+// jobs (completed, failed, cancelled) older than maxAge.
+func (q *Queue) StartCleanup(ctx context.Context, maxAge time.Duration) {
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				q.cleanupOldJobs(maxAge)
+			}
+		}
+	}()
+}
+
+func (q *Queue) cleanupOldJobs(maxAge time.Duration) {
+	q.mu.Lock()
+	var toRemove []string
+	now := time.Now()
+	for id, job := range q.jobs {
+		job.mu.RLock()
+		status := job.Status
+		completedAt := job.CompletedAt
+		job.mu.RUnlock()
+
+		if status == StatusCompleted || status == StatusFailed || status == StatusCancelled {
+			if !completedAt.IsZero() && now.Sub(completedAt) > maxAge {
+				toRemove = append(toRemove, id)
+			}
+		}
+	}
+	for _, id := range toRemove {
+		delete(q.jobs, id)
+	}
+	q.mu.Unlock()
+
+	// Clean up subscribers and persistent store outside the main lock.
+	if len(toRemove) > 0 {
+		for _, id := range toRemove {
+			q.persistRemove(id)
+		}
+		q.subMu.Lock()
+		for _, id := range toRemove {
+			if subs, ok := q.subscribers[id]; ok {
+				for _, ch := range subs {
+					close(ch)
+				}
+				delete(q.subscribers, id)
+			}
+		}
+		q.subMu.Unlock()
+		slog.Info("cleaned up old jobs", "count", len(toRemove))
+	}
+}
+
+// SaveJob persists the current state of a job identified by id.
+// It is safe to call from outside the package (e.g. after status transitions).
+func (q *Queue) SaveJob(id string) {
+	q.mu.RLock()
+	job, ok := q.jobs[id]
+	q.mu.RUnlock()
+	if !ok {
+		return
+	}
+	q.persistSave(job)
+}
+
+func (q *Queue) persistSave(job *Job) {
+	if q.store == nil {
+		return
+	}
+	if err := q.store.Save(job); err != nil {
+		slog.Warn("failed to persist job", "job_id", job.ID, "error", err)
+	}
+}
+
+func (q *Queue) persistRemove(id string) {
+	if q.store == nil {
+		return
+	}
+	if err := q.store.Remove(id); err != nil {
+		slog.Warn("failed to remove persisted job", "job_id", id, "error", err)
 	}
 }

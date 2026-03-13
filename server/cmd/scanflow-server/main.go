@@ -107,6 +107,20 @@ func main() {
 	})
 
 	jobQueue := jobs.NewQueue()
+	if cfg.Storage.LocalDirectory != "" {
+		storeDir := filepath.Join(cfg.Storage.LocalDirectory, "jobs")
+		store, err := jobs.NewStore(storeDir)
+		if err != nil {
+			slog.Warn("failed to create job store, running without persistence", "dir", storeDir, "error", err)
+		} else {
+			q, err := jobs.NewQueueWithStore(store)
+			if err != nil {
+				slog.Warn("failed to load persisted jobs, running without persistence", "error", err)
+			} else {
+				jobQueue = q
+			}
+		}
+	}
 
 	profilesDir := filepath.Join(filepath.Dir(*configPath), "profiles")
 	profiles, err := config.NewProfileStore(profilesDir)
@@ -121,6 +135,13 @@ func main() {
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Start job cleanup goroutine
+	retentionAge := time.Duration(cfg.Storage.RetentionDays) * 24 * time.Hour
+	if retentionAge < 1*time.Hour {
+		retentionAge = 1 * time.Hour
+	}
+	jobQueue.StartCleanup(ctx, retentionAge)
 
 	// Setup button watcher if enabled
 	if cfg.Button.Enabled {

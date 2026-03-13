@@ -20,6 +20,10 @@ nav:
   - Hardware Recommendations: hardware.md
   - Configuration: configuration.md
   - API Reference: api-reference.md
+  - Troubleshooting: troubleshooting.md
+  - Operations Runbook: operations.md
+  - Performance Tuning: performance.md
+  - Upgrade Guide: upgrade.md
   - Roadmap: roadmap.md
 
 markdown_extensions:
