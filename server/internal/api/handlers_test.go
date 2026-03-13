@@ -398,3 +398,52 @@ func TestUpdateSettingsRejectsInvalidOCRLang(t *testing.T) {
 		t.Fatalf("expected 400 for invalid OCR language, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+func TestReadyEndpoint(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest("GET", "/api/v1/ready", nil)
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var resp map[string]string
+	json.NewDecoder(w.Body).Decode(&resp)
+
+	if resp["status"] != "ready" {
+		t.Fatalf("expected status 'ready', got %s", resp["status"])
+	}
+}
+
+func TestRequestIDInErrorResponse(t *testing.T) {
+	srv := newTestServer(t)
+
+	req := httptest.NewRequest("GET", "/api/v1/scan/nonexistent-id", nil)
+	w := httptest.NewRecorder()
+
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", w.Code)
+	}
+
+	var resp map[string]string
+	json.NewDecoder(w.Body).Decode(&resp)
+
+	if resp["request_id"] == "" {
+		t.Fatal("expected non-empty request_id in error response")
+	}
+
+	if resp["error"] != "job not found" {
+		t.Fatalf("expected error 'job not found', got %s", resp["error"])
+	}
+
+	// Verify X-Request-ID header is also set
+	if w.Header().Get("X-Request-ID") == "" {
+		t.Fatal("expected X-Request-ID header to be set")
+	}
+}

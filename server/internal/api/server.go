@@ -64,6 +64,7 @@ func (s *Server) setupRouter() {
 
 	// Health check (no auth required)
 	r.Get("/api/v1/health", s.handleHealth)
+	r.Get("/api/v1/ready", s.handleReady)
 
 	// API routes (with auth)
 	r.Group(func(r chi.Router) {
