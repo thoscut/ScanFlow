@@ -240,6 +240,7 @@ func (s *Server) processJob(job *jobs.Job) {
 	profile, ok := s.profiles.Get(job.Profile)
 	if !ok {
 		job.SetError(fmt.Errorf("profile %q not found", job.Profile))
+		s.jobQueue.SaveJob(job.ID)
 		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
@@ -247,6 +248,7 @@ func (s *Server) processJob(job *jobs.Job) {
 
 	// Set scanning status
 	job.SetStatus(jobs.StatusScanning)
+	s.jobQueue.SaveJob(job.ID)
 	s.broadcastJobUpdate(job)
 
 	// Perform scan
@@ -261,6 +263,7 @@ func (s *Server) processJob(job *jobs.Job) {
 	pages, err := s.scanner.ScanBatch(ctx, opts)
 	if err != nil {
 		job.SetError(fmt.Errorf("scan failed: %w", err))
+		s.jobQueue.SaveJob(job.ID)
 		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
@@ -283,6 +286,7 @@ func (s *Server) processJob(job *jobs.Job) {
 
 	if job.PageCount() == 0 {
 		job.SetError(fmt.Errorf("no pages scanned"))
+		s.jobQueue.SaveJob(job.ID)
 		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
@@ -290,11 +294,13 @@ func (s *Server) processJob(job *jobs.Job) {
 
 	// Process pages
 	job.SetStatus(jobs.StatusProcessing)
+	s.jobQueue.SaveJob(job.ID)
 	s.broadcastJobUpdate(job)
 
 	doc, err := s.processor.Process(ctx, job, profile)
 	if err != nil {
 		job.SetError(fmt.Errorf("processing failed: %w", err))
+		s.jobQueue.SaveJob(job.ID)
 		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
@@ -308,6 +314,7 @@ func (s *Server) processJob(job *jobs.Job) {
 
 	if err := s.outputs.Send(ctx, target, doc); err != nil {
 		job.SetError(fmt.Errorf("output failed: %w", err))
+		s.jobQueue.SaveJob(job.ID)
 		s.metrics.JobFailed()
 		s.broadcastJobUpdate(job)
 		return
@@ -315,6 +322,7 @@ func (s *Server) processJob(job *jobs.Job) {
 
 	// Done
 	job.SetStatus(jobs.StatusCompleted)
+	s.jobQueue.SaveJob(job.ID)
 	s.metrics.JobCompleted()
 	job.SendProgress(jobs.ProgressUpdate{
 		Type:    "completed",

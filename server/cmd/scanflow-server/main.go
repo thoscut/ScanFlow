@@ -107,6 +107,20 @@ func main() {
 	})
 
 	jobQueue := jobs.NewQueue()
+	if cfg.Storage.LocalDirectory != "" {
+		storeDir := filepath.Join(cfg.Storage.LocalDirectory, "jobs")
+		store, err := jobs.NewStore(storeDir)
+		if err != nil {
+			slog.Warn("failed to create job store, running without persistence", "dir", storeDir, "error", err)
+		} else {
+			q, err := jobs.NewQueueWithStore(store)
+			if err != nil {
+				slog.Warn("failed to load persisted jobs, running without persistence", "error", err)
+			} else {
+				jobQueue = q
+			}
+		}
+	}
 
 	profilesDir := filepath.Join(filepath.Dir(*configPath), "profiles")
 	profiles, err := config.NewProfileStore(profilesDir)

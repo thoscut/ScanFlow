@@ -13,18 +13,42 @@ type Queue struct {
 	jobs    map[string]*Job
 	pending chan *Job
 	mu      sync.RWMutex
+	store   *Store
 
 	subscribers map[string][]chan ProgressUpdate
 	subMu       sync.RWMutex
 }
 
-// NewQueue creates a new job queue.
+// NewQueue creates a new job queue without persistence.
 func NewQueue() *Queue {
 	return &Queue{
 		jobs:        make(map[string]*Job),
 		pending:     make(chan *Job, 100),
 		subscribers: make(map[string][]chan ProgressUpdate),
 	}
+}
+
+// NewQueueWithStore creates a job queue backed by persistent storage.
+// Previously persisted jobs are loaded into the in-memory map.
+func NewQueueWithStore(store *Store) (*Queue, error) {
+	q := &Queue{
+		jobs:        make(map[string]*Job),
+		pending:     make(chan *Job, 100),
+		subscribers: make(map[string][]chan ProgressUpdate),
+		store:       store,
+	}
+
+	persisted, err := store.LoadAll()
+	if err != nil {
+		return nil, fmt.Errorf("load persisted jobs: %w", err)
+	}
+	for _, job := range persisted {
+		q.jobs[job.ID] = job
+	}
+	if len(persisted) > 0 {
+		slog.Info("loaded persisted jobs", "count", len(persisted))
+	}
+	return q, nil
 }
 
 // Submit adds a new job to the queue.
@@ -38,6 +62,8 @@ func (q *Queue) Submit(job *Job) error {
 
 	q.jobs[job.ID] = job
 	slog.Info("job submitted", "job_id", job.ID, "profile", job.Profile)
+
+	q.persistSave(job)
 
 	// Forward progress updates to subscribers
 	go q.forwardProgress(job)
@@ -86,6 +112,7 @@ func (q *Queue) Cancel(id string) error {
 	}
 
 	job.Cancel()
+	q.persistSave(job)
 	slog.Info("job cancelled", "job_id", id)
 	return nil
 }
@@ -135,6 +162,8 @@ func (q *Queue) Remove(id string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	delete(q.jobs, id)
+
+	q.persistRemove(id)
 
 	q.subMu.Lock()
 	defer q.subMu.Unlock()
@@ -190,8 +219,11 @@ func (q *Queue) cleanupOldJobs(maxAge time.Duration) {
 	}
 	q.mu.Unlock()
 
-	// Clean up subscribers outside the main lock.
+	// Clean up subscribers and persistent store outside the main lock.
 	if len(toRemove) > 0 {
+		for _, id := range toRemove {
+			q.persistRemove(id)
+		}
 		q.subMu.Lock()
 		for _, id := range toRemove {
 			if subs, ok := q.subscribers[id]; ok {
@@ -203,5 +235,35 @@ func (q *Queue) cleanupOldJobs(maxAge time.Duration) {
 		}
 		q.subMu.Unlock()
 		slog.Info("cleaned up old jobs", "count", len(toRemove))
+	}
+}
+
+// SaveJob persists the current state of a job identified by id.
+// It is safe to call from outside the package (e.g. after status transitions).
+func (q *Queue) SaveJob(id string) {
+	q.mu.RLock()
+	job, ok := q.jobs[id]
+	q.mu.RUnlock()
+	if !ok {
+		return
+	}
+	q.persistSave(job)
+}
+
+func (q *Queue) persistSave(job *Job) {
+	if q.store == nil {
+		return
+	}
+	if err := q.store.Save(job); err != nil {
+		slog.Warn("failed to persist job", "job_id", job.ID, "error", err)
+	}
+}
+
+func (q *Queue) persistRemove(id string) {
+	if q.store == nil {
+		return
+	}
+	if err := q.store.Remove(id); err != nil {
+		slog.Warn("failed to remove persisted job", "job_id", id, "error", err)
 	}
 }
