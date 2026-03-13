@@ -188,6 +188,7 @@ func runInteractiveScan(cmd *cobra.Command, c *client.Client) error {
 				continue
 			}
 			// Poll until scan activity settles
+			prevPages := len(job.Pages)
 			for i := 0; i < 20; i++ {
 				time.Sleep(500 * time.Millisecond)
 				updated, err := c.GetJobStatus(cmd.Context(), job.ID)
@@ -198,7 +199,7 @@ func runInteractiveScan(cmd *cobra.Command, c *client.Client) error {
 				if updated.Status != "scanning" {
 					break
 				}
-				if len(updated.Pages) > len(job.Pages) {
+				if len(updated.Pages) > prevPages {
 					break
 				}
 			}

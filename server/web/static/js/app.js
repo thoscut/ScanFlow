@@ -243,7 +243,7 @@ function addJobCard(job) {
     card.id = 'job-' + job.id;
     card.innerHTML = `
         <div class="job-header">
-            <span class="job-id">${escapeHTML(job.id.substring(0, 8))}...</span>
+            <span class="job-id">${escapeHTML(job.id.slice(0, 8))}...</span>
             <div class="job-header-right">
                 ${isActive ? '<button class="btn btn-cancel" onclick="cancelJob(\'' + escapeHTML(job.id) + '\')">Cancel</button>' : ''}
                 <span class="job-status ${escapeHTML(job.status)}">${escapeHTML(statusLabel(job.status))}</span>
