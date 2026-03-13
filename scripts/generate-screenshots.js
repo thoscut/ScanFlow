@@ -8,6 +8,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const { chromium } = require("playwright");
 
 const PORT = 0; // auto-assign
 const WEB_DIR = path.join(__dirname, "..", "server", "web");
@@ -105,9 +106,6 @@ function serveStatic(req, res) {
 }
 
 async function captureScreenshots(baseURL) {
-  // Dynamic import for ES module
-  const { chromium } = require("playwright");
-
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
   const browser = await chromium.launch();
