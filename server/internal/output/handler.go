@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/thoscut/scanflow/server/internal/config"
 	"github.com/thoscut/scanflow/server/internal/jobs"
 )
+
+const maxRetries = 3
 
 // Handler is the interface for all output targets.
 type Handler interface {
@@ -58,7 +61,7 @@ func NewManager(cfg config.OutputConfig) *Manager {
 	return m
 }
 
-// Send routes a document to the specified output target.
+// Send routes a document to the specified output target with retry logic.
 func (m *Manager) Send(ctx context.Context, target string, doc *jobs.Document) error {
 	handler, ok := m.handlers[target]
 	if !ok {
@@ -70,12 +73,35 @@ func (m *Manager) Send(ctx context.Context, target string, doc *jobs.Document) e
 		"filename", doc.Filename,
 		"size", doc.Size)
 
-	if err := handler.Send(ctx, doc); err != nil {
-		return fmt.Errorf("output %s: %w", target, err)
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			// Exponential backoff: 2^(attempt-1) seconds → 1s, 2s, 4s
+			delay := time.Duration(1<<(attempt-1)) * time.Second
+			slog.Warn("retrying output send",
+				"target", target,
+				"attempt", attempt,
+				"delay", delay,
+				"error", lastErr)
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("output %s: context cancelled during retry: %w", target, ctx.Err())
+			case <-time.After(delay):
+			}
+		}
+
+		if err := handler.Send(ctx, doc); err != nil {
+			lastErr = err
+			continue
+		}
+
+		slog.Info("document sent successfully",
+			"target", target,
+			"attempts", attempt+1)
+		return nil
 	}
 
-	slog.Info("document sent successfully", "target", target)
-	return nil
+	return fmt.Errorf("output %s: all retries exhausted: %w", target, lastErr)
 }
 
 // ListTargets returns all configured output targets.

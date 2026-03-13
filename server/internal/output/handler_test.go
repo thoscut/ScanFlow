@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -16,6 +17,24 @@ import (
 	"github.com/thoscut/scanflow/server/internal/config"
 	"github.com/thoscut/scanflow/server/internal/jobs"
 )
+
+// failNTimesHandler is a mock output handler that fails a configurable number
+// of times before succeeding.
+type failNTimesHandler struct {
+	name     string
+	failures int
+	calls    int
+}
+
+func (h *failNTimesHandler) Name() string      { return h.name }
+func (h *failNTimesHandler) Available() bool    { return true }
+func (h *failNTimesHandler) Send(_ context.Context, _ *jobs.Document) error {
+	h.calls++
+	if h.calls <= h.failures {
+		return fmt.Errorf("temporary failure")
+	}
+	return nil
+}
 
 func TestFilesystemHandlerSend(t *testing.T) {
 	dir := t.TempDir()
@@ -169,5 +188,35 @@ func TestSanitizeMIMEValue(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("sanitizeMIMEValue(%q) = %q, want %q", tc.input, got, tc.want)
 		}
+	}
+}
+
+func TestManagerSendRetries(t *testing.T) {
+	mock := &failNTimesHandler{name: "test", failures: 2}
+	m := &Manager{handlers: map[string]Handler{"test": mock}}
+
+	err := m.Send(context.Background(), "test", &jobs.Document{Filename: "doc.pdf"})
+	if err != nil {
+		t.Fatalf("expected success after retries, got: %v", err)
+	}
+	if mock.calls != 3 {
+		t.Fatalf("expected 3 calls, got %d", mock.calls)
+	}
+}
+
+func TestManagerSendRetriesExhausted(t *testing.T) {
+	mock := &failNTimesHandler{name: "test", failures: 10}
+	m := &Manager{handlers: map[string]Handler{"test": mock}}
+
+	err := m.Send(context.Background(), "test", &jobs.Document{Filename: "doc.pdf"})
+	if err == nil {
+		t.Fatal("expected error after exhausting retries")
+	}
+	if !strings.Contains(err.Error(), "all retries exhausted") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+	// 1 initial + 3 retries = 4 calls
+	if mock.calls != 4 {
+		t.Fatalf("expected 4 calls, got %d", mock.calls)
 	}
 }
